@@ -46,12 +46,19 @@ function readUsers() {
     if (file_exists(USER_FILE)) {
         $lines = file(USER_FILE, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
-            list($username, $email, $phone, $passwordHash, $verified) = explode(',', $line);
+            $parts = explode(',', $line);
+            $username = $parts[0] ?? '';
+            $email = $parts[1] ?? '';
+            $phone = $parts[2] ?? '';
+            $passwordHash = $parts[3] ?? '';
+            $verified = $parts[4] ?? '0';
+            $approved = $parts[5] ?? '0';
             $users[$username] = [
                 'email' => $email,
                 'phone' => $phone,
                 'password' => $passwordHash,
-                'verified' => $verified === '1'
+                'verified' => $verified === '1',
+                'approved' => $approved === '1'
             ];
         }
     }
@@ -66,7 +73,8 @@ function writeUsers($users) {
             $data['email'],
             $data['phone'],
             $data['password'],
-            $data['verified'] ? '1' : '0'
+            $data['verified'] ? '1' : '0',
+            $data['approved'] ? '1' : '0'
         ]);
     }
     file_put_contents(USER_FILE, implode(PHP_EOL, $lines));
@@ -80,7 +88,7 @@ if ($sessionId) {
     $sessionData = $sessionManager->getSession($sessionId);
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (!empty($_POST)) {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'login') {
@@ -96,11 +104,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!password_verify($password, $user['password'])) {
                 $message = "Incorrect password.";
             } else {
-                // Create session and set cookie
-                $sessionId = $sessionManager->createSession($username);
-                setcookie('RangantodappSession', $sessionId, time() + 3600, "/");
-                $message = "Login successful. Welcome, " . htmlspecialchars($username) . "!";
-                $sessionData = $sessionManager->getSession($sessionId);
+                if (!$user['approved']) {
+                    $message = "Your account is awaiting admin approval.";
+                } else {
+                    // Create session and set cookie
+                    $sessionId = $sessionManager->createSession($username);
+                    setcookie('RangantodappSession', $sessionId, time() + 3600, "/");
+                    $sessionData = $sessionManager->getSession($sessionId);
+                    if (strtoupper($username) === 'ADMIN') {
+                        header("Location: admin_approval.php");
+                        exit();
+                    } else {
+                        $message = "Login successful. Welcome, " . htmlspecialchars($username) . "!";
+                    }
+                }
             }
         }
     } elseif ($action === 'logout') {
@@ -122,8 +139,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Login - Rangantodapp</title>
     <link rel="stylesheet" href="rangantodapp.css" />
 </head>
-<body>
+<body style="background: linear-gradient(135deg, #1e3c72, #2a5298); min-height: 100vh; display: flex; justify-content: center; align-items: center;">
     <div class="container">
+        <div class="logo-container" style="text-align: center; margin-bottom: 20px;">
+            <img src="img/datodalogo.jpg" alt="DATODA Logo" style="max-width: 150px; height: auto;" />
+            <h1 style="margin: 10px 0 0; font-family: Arial, sans-serif; color: #333;">DATODA</h1>
+        </div>
         <h2>Login</h2>
         <?php if ($message): ?>
             <p style="color: red; text-align: center;"><?php echo htmlspecialchars($message); ?></p>
