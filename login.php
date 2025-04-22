@@ -12,6 +12,10 @@ define('USER_FILE', __DIR__ . DIRECTORY_SEPARATOR . 'users.txt');
 
 $sessionManager = new SessionManager();
 
+function getOtpFilePath($username) {
+    return sys_get_temp_dir() . DIRECTORY_SEPARATOR . "otp_{$username}.txt";
+}
+
 function sendOtpEmail($toEmail, $otp) {
     $mail = new PHPMailer(true);
     try {
@@ -94,6 +98,7 @@ if (!empty($_POST)) {
     if ($action === 'login') {
         $username = trim($_POST['username'] ?? '');
         $password = $_POST['password'] ?? '';
+        $otp = $_POST['otp'] ?? '';
 
         if (!$username || !$password) {
             $message = "Username and password are required for login.";
@@ -107,15 +112,47 @@ if (!empty($_POST)) {
                 if (!$user['approved']) {
                     $message = "Your account is awaiting admin approval.";
                 } else {
-                    // Create session and set cookie
-                    $sessionId = $sessionManager->createSession($username);
-                    setcookie('RangantodappSession', $sessionId, time() + 3600, "/");
-                    $sessionData = $sessionManager->getSession($sessionId);
-                    if (strtoupper($username) === 'ADMIN') {
-                        header("Location: admin_approval.php");
-                        exit();
+                    if (!$otp) {
+                        // Generate OTP and send email
+                        $otp = '';
+                        for ($i = 0; $i < 6; $i++) {
+                            $otp .= rand(0, 9);
+                        }
+                        $otpFile = getOtpFilePath($username);
+                        file_put_contents($otpFile, $otp);
+
+                        if (sendOtpEmail($user['email'], $otp)) {
+                            $showOtpForm = true;
+                            $message = "OTP sent to your email. Please verify.";
+                        } else {
+                            $message = "Failed to send OTP email. Please try again.";
+                        }
                     } else {
-                        $message = "Login successful. Welcome, " . htmlspecialchars($username) . "!";
+                        // Verify OTP
+                        $otpFile = getOtpFilePath($username);
+                        if (!file_exists($otpFile)) {
+                            $message = "No OTP found. Please login again.";
+                            $showOtpForm = false;
+                        } else {
+                            $savedOtp = file_get_contents($otpFile);
+                            if ($otp === $savedOtp) {
+                                unlink($otpFile);
+                                // Create session and set cookie
+                                $sessionId = $sessionManager->createSession($username);
+                                setcookie('RangantodappSession', $sessionId, time() + 3600, "/");
+                                $sessionData = $sessionManager->getSession($sessionId);
+                                if (strtoupper($username) === 'ADMIN') {
+                                    header("Location: admin_approval.php");
+                                    exit();
+                                } else {
+                                    $message = "Login successful. Welcome, " . htmlspecialchars($username) . "!";
+                                    $showOtpForm = false;
+                                }
+                            } else {
+                                $message = "Invalid OTP. Please try again.";
+                                $showOtpForm = true;
+                            }
+                        }
                     }
                 }
             }
@@ -162,6 +199,16 @@ if (!empty($_POST)) {
                 <button type="submit">Login</button>
             </form>
             <p>Don't have an account? <a href="register.php">Register here</a></p>
+        <?php else: ?>
+            <form method="POST" action="login.php">
+                <input type="hidden" name="action" value="login" />
+                <input type="hidden" name="username" value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>" />
+                <input type="hidden" name="password" value="<?php echo htmlspecialchars($_POST['password'] ?? ''); ?>" />
+                <label for="otp">Enter OTP:</label>
+                <input type="text" id="otp" name="otp" required />
+
+                <button type="submit">Verify OTP</button>
+            </form>
         <?php endif; ?>
     </div>
 </body>
