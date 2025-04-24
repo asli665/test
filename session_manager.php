@@ -1,4 +1,3 @@
-/*sir ayaw gumana pag wala ganto whahahaha for the mean time lang po muna habang we figure things out pa*/
 
 <?php
 class SessionManager {

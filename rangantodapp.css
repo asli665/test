@@ -1,160 +1,96 @@
-/* Basic styling for Rangantodapp */
+@import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
 
 body {
-    font-family: Arial, sans-serif;
-    background: linear-gradient(135deg, #1e3c72, #2a5298);
-    margin: 0;
-    padding: 0;
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    margin: 0 !important;
+    font-family: 'Poppins', sans-serif !important;
+    background-color: #1e3c72 !important; /* Dark blueish background */
+    color: #cce6ff !important;
 }
 
-.container {
-    max-width: 400px;
-    margin: 50px auto;
-    background-color: rgba(255, 255, 255, 0.9);
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+.slidebar {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 70px !important;
+    height: 100vh !important;
+    background-color: #007bff !important;
+    padding-top: 20px !important;
+    transition: width 0.3s !important;
+    overflow-x: hidden !important;
+}
+.slidebar:hover {
+    width: 250px !important;
+}
+.slidebar ul {
+    list-style-type: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+.slidebar ul li {
+    padding: 15px 20px !important;
+}
+.slidebar ul li a {
+    color: white !important;
+    text-decoration: none !important;
+    display: flex !important;
+    align-items: center !important;
+    font-size: 18px !important;
+    transition: background-color 0.3s !important;
+}
+.slidebar ul li a:hover {
+    background-color: #0056b3 !important;
+    border-radius: 4px !important;
+}
+.slidebar ul li a .icon {
+    margin-right: 15px !important;
+    width: 25px !important;
+    text-align: center !important;
+}
+.slidebar ul li a .icon i {
+    font-size: 20px !important;
+    color: white !important;
+}
+.slidebar ul li a .text {
+    white-space: nowrap !important;
+    opacity: 0 !important;
+    transition: opacity 0.3s !important;
+    pointer-events: none !important;
+}
+.slidebar:hover ul li a .text {
+    opacity: 1 !important;
+    pointer-events: auto !important;
 }
 
-h2 {
-    text-align: center;
-    color: #333;
-    margin-bottom: 20px;
+.admin-header {
+    margin-left: 250px !important;
+    padding: 20px !important;
+    background-color: #2a5298 !important;
+    color: #cce6ff !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 15px !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important;
 }
 
-form label {
-    display: block;
-    margin-bottom: 6px;
-    color: #555;
-    font-weight: bold;
+.admin-header h1 {
+    margin: 0 !important;
+    font-size: 2rem !important;
+    font-weight: bold !important;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.7) !important;
 }
 
-form input[type="text"],
-form input[type="email"],
-form input[type="password"] {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 15px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box;
-    font-size: 14px;
+.admin-header img {
+    max-width: 40px !important; /* Smaller logo size */
+    height: auto !important;
+    border-radius: 8px !important;
+    box-shadow: 0 0 8px rgba(0,0,0,0.3) !important;
 }
 
-form button {
-    width: 100%;
-    padding: 12px;
-    background-color: #007bff;
-    border: none;
-    border-radius: 4px;
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
+.main-content {
+    margin-left: 250px !important;
+    padding: 20px !important;
+    background-color: #1e3c72 !important; /* Dark blueish background */
+    color: #cce6ff !important;
+    min-height: calc(100vh - 100px) !important;
+    overflow-y: auto !important;
 }
-
-form button:hover {
-    background-color: #0056b3;
-}
-
-p {
-    text-align: center;
-    color: #666;
-}
-
-a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-a:hover {
-    text-decoration: underline;
-}
-body.admin-approval {
-    background: linear-gradient(135deg, #1e3c72, #2a5298);
-    font-family: Arial, sans-serif;
-    color: #fff;
-    padding: 20px;
-    min-height: 100vh;
-    }
-    
-    .admin-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 30px;
-    }
-    
-    .admin-header img {
-        max-width: 60px;
-        height: auto;
-        margin-right: 15px;
-        border-radius: 8px;
-        box-shadow: 0 0 8px rgba(0,0,0,0.3);
-        }
-        
-        .admin-header h1 {
-        font-size: 2rem;
-        font-weight: bold;
-        margin: 0;
-        color: #cce6ff;
-        text-shadow: 1px 1px 4px rgba(0,0,0,0.7);
-        }
-    
-    .admin-approval table {
-    width: 100%;
-    border-collapse: collapse;
-    background-color: rgba(255, 255, 255, 0.1);
-    box-shadow: 0 0 10px rgba(0,0,0,0.2);
-    border-radius: 8px;
-    overflow: hidden;
-    }
-    
-    .admin-approval th, .admin-approval td {
-        color: #e0e6f0;
-        }
-    
-    .admin-approval th {
-    background-color: rgba(0, 0, 128, 0.7);
-    color: #e0f0ff;
-    font-weight: 600;
-    }
-    
-    .admin-approval tr:hover {
-    background-color: rgba(0, 0, 128, 0.3);
-    }
-    
-    .admin-approval button {
-    background-color: #0056b3;
-    color: #fff;
-    border: none;
-    padding: 8px 14px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: background-color 0.3s ease;
-    }
-    
-    .admin-approval button:hover {
-    background-color: #003d7a;
-    }
-    
-    .admin-approval p.logged-in {
-    margin-bottom: 20px;
-    font-size: 1rem;
-    color: #cce6ff;
-    }
-    
-    .admin-approval a.logout-link {
-    color: #99ccff;
-    text-decoration: none;
-    font-weight: 600;
-    margin-left: 10px;
-    }
-    
-    .admin-approval a.logout-link:hover {
-    text-decoration: underline;
-    }

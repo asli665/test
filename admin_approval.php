@@ -87,40 +87,70 @@ $pendingUsers = array_filter($users, function($user) {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Admin Dashboard - Rangantodapp</title>
+    <link rel="stylesheet" href="admin_approval.css" />
     <link rel="stylesheet" href="rangantodapp.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        html, body {
-            height: auto !important;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            justify-content: flex-start !important;
-            margin: 0;
-            padding: 0;
-        }
-        body.admin-dashboard {
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            justify-content: flex-start !important;
-        }
-    </style>
 </head>
-<body class="admin-dashboard">
+<body class="admin-approval">
+    <div class="slidebar">
+        <ul>
+            <li>
+                <a href="#" class="logo">
+                    <span class="icon"><img src="img/datodalogo.jpg" alt="Datoda Logo" style="width: 25px; height: 25px; object-fit: contain;"></span>
+                    <span class="text">RANGANTODAP</span>
+                </a>
+            </li>
+            <li>
+                <a href="#">
+                    <span class="icon"><i class="fa-solid fa-user"></i></span>
+                    <span class="text">PROFILE</span>
+                </a>
+            </li>
+            <li>
+                <a href="#">
+                    <span class="icon"><i class="fa-solid fa-star"></i></span>
+                    <span class="text">RATINGS</span>
+                </a>
+            </li>
+            <li>
+                <a href="#">
+                    <span class="icon"><i class="fa-solid fa-money-bill-wave"></i></span>
+                    <span class="text">FUNDS</span>
+                </a>
+            </li>
+            <li>
+                <a href="#">
+                    <span class="icon"><i class="fa-solid fa-table-list"></i></span>
+                    <span class="text">FARE MATRIX</span>
+                </a>
+            </li>
+            <li>
+                <a href="#">
+                    <span class="icon"><i class="fa-solid fa-box-open"></i></span>
+                    <span class="text">LOST AND FOUND</span>
+                </a>
+            </li>
+            <li>
+                <a href="#">
+                    <span class="icon"><i class="fa-solid fa-right-from-bracket"></i></span>
+                    <span class="text">LOG OUT</span>
+                </a>
+            </li>
+        </ul>
+    </div>
     <header class="admin-header">
-        <h1 style="text-align: center; font-family: Arial, sans-serif; font-weight: bold; font-size: 2.5rem; margin: 20px 0;">RANGANTODAP</h1>
+        <h1>RANGANTODAP</h1>
         <img src="img/datodalogo.jpg" alt="DATODA Logo" />
         <h1>DATODA Admin Dashboard</h1>
     </header>
-    <p class="logged-in">Logged in as: <?php echo htmlspecialchars($username); ?> | <a class="logout-link" href="login.php?action=logout">Logout</a></p>
+    <!-- Removed logged-in info as per user request -->
 
-    <div style="display: flex; flex-direction: column; gap: 30px; max-width: 900px; margin: 20px auto 40px auto; align-items: stretch; justify-content: flex-start;">
+    <div class="main-content">
 
         <section class="activity-log-section">
             <h2>Activity Log</h2>
-            <div class="activity-log" style="max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #f9f9f9;">
+            <div class="activity-log">
                 <?php
                 $logFile = __DIR__ . DIRECTORY_SEPARATOR . 'activity_log.txt';
                 if (file_exists($logFile)) {
