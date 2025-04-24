@@ -1,3 +1,4 @@
+
 @import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
 
 body {
@@ -93,4 +94,88 @@ body {
     color: #cce6ff !important;
     min-height: calc(100vh - 100px) !important;
     overflow-y: auto !important;
+}
+
+.container {
+    max-width: 400px !important;
+    margin: 40px auto !important;
+    padding: 20px !important;
+    background-color: #2a5298 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5) !important;
+}
+
+body.login-page, body.register-page {
+    background: linear-gradient(135deg, #1e3c72, #2a5298) !important;
+    min-height: 100vh !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
+.logo-container {
+    text-align: center !important;
+    margin-bottom: 20px !important;
+}
+
+.logo-container img {
+    max-width: 150px !important;
+    height: auto !important;
+}
+
+.logo-container h1 {
+    margin: 10px 0 0 !important;
+    font-family: Arial, sans-serif !important;
+    color: #333 !important;
+}
+
+.error-message {
+    color: red !important;
+    text-align: center !important;
+}
+
+.container form {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.container form label {
+    margin-top: 10px !important;
+    margin-bottom: 5px !important;
+    font-weight: 600 !important;
+}
+
+.container form input[type="text"],
+.container form input[type="email"],
+.container form input[type="password"],
+.container form input[type="date"],
+.container form input[type="file"],
+.container form select {
+    padding: 8px 10px !important;
+    border-radius: 5px !important;
+    border: none !important;
+    margin-bottom: 10px !important;
+    font-size: 1rem !important;
+}
+
+.container form button {
+    background-color: #007bff !important;
+    color: white !important;
+    padding: 10px !important;
+    border: none !important;
+    border-radius: 5px !important;
+    font-size: 1rem !important;
+    cursor: pointer !important;
+    margin-top: 10px !important;
+    transition: background-color 0.3s ease !important;
+}
+
+.container form button:hover {
+    background-color: #0056b3 !important;
+}
+
+.container p a {
+    color: #cce6ff !important;
+    text-decoration: underline !important;
+    cursor: pointer !important;
 }

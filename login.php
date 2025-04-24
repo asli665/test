@@ -1,20 +1,14 @@
 <?php
 require 'vendor/autoload.php';
-require_once 'session_manager.php';
+require_once 'db.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
+session_start();
+
 $showOtpForm = false;
 $message = '';
-
-define('USER_FILE', __DIR__ . DIRECTORY_SEPARATOR . 'users.txt');
-
-$sessionManager = new SessionManager();
-
-function getOtpFilePath($username) {
-    return sys_get_temp_dir() . DIRECTORY_SEPARATOR . "otp_{$username}.txt";
-}
 
 function sendOtpEmail($toEmail, $otp) {
     $mail = new PHPMailer(true);
@@ -45,125 +39,172 @@ function sendOtpEmail($toEmail, $otp) {
     }
 }
 
-function readUsers() {
-    $users = [];
-    if (file_exists(USER_FILE)) {
-        $lines = file(USER_FILE, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            $parts = explode(',', $line);
-            $username = $parts[0] ?? '';
-            $email = $parts[1] ?? '';
-            $phone = $parts[2] ?? '';
-            $passwordHash = $parts[3] ?? '';
-            $verified = $parts[4] ?? '0';
-            $approved = $parts[5] ?? '0';
-            $users[$username] = [
-                'email' => $email,
-                'phone' => $phone,
-                'password' => $passwordHash,
-                'verified' => $verified === '1',
-                'approved' => $approved === '1'
-            ];
-        }
-    }
-    return $users;
-}
-
-function writeUsers($users) {
-    $lines = [];
-    foreach ($users as $username => $data) {
-        $lines[] = implode(',', [
-            $username,
-            $data['email'],
-            $data['phone'],
-            $data['password'],
-            $data['verified'] ? '1' : '0',
-            $data['approved'] ? '1' : '0'
-        ]);
-    }
-    file_put_contents(USER_FILE, implode(PHP_EOL, $lines));
-}
-
-$users = readUsers();
-
-$sessionId = $_COOKIE['RangantodappSession'] ?? null;
-$sessionData = null;
-if ($sessionId) {
-    $sessionData = $sessionManager->getSession($sessionId);
-}
+$conn = $GLOBALS['conn'];
 
 if (!empty($_POST)) {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'login') {
-        $username = trim($_POST['username'] ?? '');
-        $password = $_POST['password'] ?? '';
-        $otp = $_POST['otp'] ?? '';
+        // Use session to persist username and password during OTP verification
+        if (empty($_POST['otp'])) {
+            $username = trim($_POST['username'] ?? '');
+            $password = $_POST['password'] ?? '';
 
-        if (!$username || !$password) {
-            $message = "Username and password are required for login.";
-        } elseif (!isset($users[$username])) {
-            $message = "User not found.";
-        } else {
-            $user = $users[$username];
-            if (!password_verify($password, $user['password'])) {
-                $message = "Incorrect password.";
+            if (!$username || !$password) {
+                $message = "Username and password are required for login.";
             } else {
-                if (!$user['approved']) {
-                    $message = "Your account is awaiting admin approval.";
-                } else {
-                    if (!$otp) {
-                        // Generate OTP and send email
-                        $otp = '';
-                        for ($i = 0; $i < 6; $i++) {
-                            $otp .= rand(0, 9);
-                        }
-                        $otpFile = getOtpFilePath($username);
-                        file_put_contents($otpFile, $otp);
+                // Fetch user by username or email
+                $sql = "SELECT * FROM users WHERE username = ? OR email = ?";
+                $stmt = mysqli_prepare($conn, $sql);
+                mysqli_stmt_bind_param($stmt, "ss", $username, $username);
+                mysqli_stmt_execute($stmt);
+                $result = mysqli_stmt_get_result($stmt);
+                $user = mysqli_fetch_assoc($result);
+                mysqli_stmt_close($stmt);
 
-                        if (sendOtpEmail($user['email'], $otp)) {
-                            $showOtpForm = true;
-                            $message = "OTP sent to your email. Please verify.";
-                        } else {
-                            $message = "Failed to send OTP email. Please try again.";
-                        }
+                if (!$user) {
+                    $message = "User not found.";
+                } else {
+                    if (!password_verify($password, $user['password'])) {
+                        $message = "Incorrect password.";
                     } else {
-                        // Verify OTP
-                        $otpFile = getOtpFilePath($username);
-                        if (!file_exists($otpFile)) {
-                            $message = "No OTP found. Please login again.";
-                            $showOtpForm = false;
+                        if (!$user['approved']) {
+                            $message = "Your account is awaiting admin approval.";
                         } else {
-                            $savedOtp = file_get_contents($otpFile);
-                            if ($otp === $savedOtp) {
-                                unlink($otpFile);
-                                // Create session and set cookie
-                                $sessionId = $sessionManager->createSession($username);
-                                setcookie('RangantodappSession', $sessionId, time() + 3600, "/");
-                                $sessionData = $sessionManager->getSession($sessionId);
-                                if (strtoupper($username) === 'ADMIN') {
-                                    header("Location: admin_approval.php");
-                                    exit();
-                                } else {
-                                    $message = "Login successful. Welcome, " . htmlspecialchars($username) . "!";
-                                    $showOtpForm = false;
+                            // Store username and password in session for OTP verification
+                            $_SESSION['login_username'] = $username;
+                            $_SESSION['login_password'] = $password;
+
+                            // Check for existing valid OTP within last 5 minutes
+                            $sql = "SELECT otp_code, created_at FROM user_otps WHERE username = ? ORDER BY created_at DESC LIMIT 1";
+                            $stmt = mysqli_prepare($conn, $sql);
+                            mysqli_stmt_bind_param($stmt, "s", $user['username']);
+                            mysqli_stmt_execute($stmt);
+                            mysqli_stmt_bind_result($stmt, $existingOtp, $createdAt);
+                            $otpFound = mysqli_stmt_fetch($stmt);
+                            mysqli_stmt_close($stmt);
+
+                            $sendNewOtp = true;
+                            if ($otpFound) {
+                                $otpAge = time() - strtotime($createdAt);
+                                if ($otpAge <= 300) { // 5 minutes = 300 seconds
+                                    $otp = $existingOtp;
+                                    $sendNewOtp = false;
                                 }
-                            } else {
-                                $message = "Invalid OTP. Please try again.";
-                                $showOtpForm = true;
                             }
+
+                            if ($sendNewOtp) {
+                                // Generate new OTP
+                                $otp = '';
+                                for ($i = 0; $i < 6; $i++) {
+                                    $otp .= rand(0, 9);
+                                }
+
+                                // Insert new OTP into database
+                                $sql = "INSERT INTO user_otps (username, otp_code) VALUES (?, ?)";
+                                $stmt = mysqli_prepare($conn, $sql);
+                                mysqli_stmt_bind_param($stmt, "ss", $user['username'], $otp);
+                                mysqli_stmt_execute($stmt);
+                                mysqli_stmt_close($stmt);
+                            }
+
+                            if (sendOtpEmail($user['email'], $otp)) {
+                                $showOtpForm = true;
+                                $message = "OTP sent to your email. Please verify.";
+                            } else {
+                                $message = "Failed to send OTP email. Please try again.";
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // OTP verification step
+            $otp = $_POST['otp'] ?? '';
+            $username = $_SESSION['login_username'] ?? '';
+            $password = $_SESSION['login_password'] ?? '';
+
+            if (!$username || !$password) {
+                $message = "Session expired. Please login again.";
+                $showOtpForm = false;
+            } else {
+                // Fetch user by username or email
+                $sql = "SELECT * FROM users WHERE username = ? OR email = ?";
+                $stmt = mysqli_prepare($conn, $sql);
+                mysqli_stmt_bind_param($stmt, "ss", $username, $username);
+                mysqli_stmt_execute($stmt);
+                $result = mysqli_stmt_get_result($stmt);
+                $user = mysqli_fetch_assoc($result);
+                mysqli_stmt_close($stmt);
+
+                if (!$user) {
+                    $message = "User not found.";
+                    $showOtpForm = false;
+                } else {
+                    // Verify OTP
+                    $sql = "SELECT otp_code FROM user_otps WHERE username = ? ORDER BY created_at DESC LIMIT 1";
+                    $stmt = mysqli_prepare($conn, $sql);
+                    mysqli_stmt_bind_param($stmt, "s", $user['username']);
+                    mysqli_stmt_execute($stmt);
+                    mysqli_stmt_bind_result($stmt, $savedOtp);
+                    $otpFound = mysqli_stmt_fetch($stmt);
+                    mysqli_stmt_close($stmt);
+
+                    if (!$otpFound) {
+                        $message = "No OTP found. Please login again.";
+                        $showOtpForm = false;
+                    } else {
+                        if ($otp === $savedOtp) {
+                            // Delete OTP after successful login
+                            $sql = "DELETE FROM user_otps WHERE username = ?";
+                            $stmt = mysqli_prepare($conn, $sql);
+                            mysqli_stmt_bind_param($stmt, "s", $user['username']);
+                            mysqli_stmt_execute($stmt);
+                            mysqli_stmt_close($stmt);
+
+                            // Set session variables
+                            $_SESSION['username'] = $user['username'];
+                            $_SESSION['user_type'] = $user['user_type'];
+
+                            // Log login action to activity_logs table
+                            $logAction = "User '{$user['username']}' logged in.";
+                            $logSql = "INSERT INTO activity_logs (username, action) VALUES (?, ?)";
+                            $logStmt = mysqli_prepare($conn, $logSql);
+                            mysqli_stmt_bind_param($logStmt, "ss", $user['username'], $logAction);
+                            mysqli_stmt_execute($logStmt);
+                            mysqli_stmt_close($logStmt);
+
+                            // Clear temporary login session variables
+                            unset($_SESSION['login_username']);
+                            unset($_SESSION['login_password']);
+
+if (strtoupper($user['username']) === 'ADMIN') {
+    header("Location: admin_approval.php");
+    exit();
+} else {
+    if ($user['user_type'] === 'passenger') {
+        header("Location: passenger.php");
+        exit();
+    } elseif ($user['user_type'] === 'driver') {
+        header("Location: driver.php");
+        exit();
+    } else {
+        // Default fallback
+        header("Location: login.php");
+        exit();
+    }
+}
+                        } else {
+                            $message = "Invalid OTP. Please try again.";
+                            $showOtpForm = true;
                         }
                     }
                 }
             }
         }
     } elseif ($action === 'logout') {
-        if ($sessionId) {
-            $sessionManager->destroySession($sessionId);
-            setcookie('RangantodappSession', '', time() - 3600, "/");
-            $message = "Logged out successfully.";
-            $sessionData = null;
-        }
+        session_destroy();
+        $message = "Logged out successfully.";
     }
 }
 ?>
@@ -176,15 +217,15 @@ if (!empty($_POST)) {
     <title>Login - Rangantodapp</title>
     <link rel="stylesheet" href="rangantodapp.css" />
 </head>
-<body style="background: linear-gradient(135deg, #1e3c72, #2a5298); min-height: 100vh; display: flex; justify-content: center; align-items: center;">
+<body class="login-page">
     <div class="container">
-        <div class="logo-container" style="text-align: center; margin-bottom: 20px;">
-            <img src="img/datodalogo.jpg" alt="DATODA Logo" style="max-width: 150px; height: auto;" />
-            <h1 style="margin: 10px 0 0; font-family: Arial, sans-serif; color: #333;">DATODA</h1>
+        <div class="logo-container">
+            <img src="img/datodalogo.jpg" alt="DATODA Logo" />
+            <h1>DATODA</h1>
         </div>
         <h2>Login</h2>
         <?php if ($message): ?>
-            <p style="color: red; text-align: center;"><?php echo htmlspecialchars($message); ?></p>
+            <p class="error-message"><?php echo htmlspecialchars($message); ?></p>
         <?php endif; ?>
 
         <?php if (!$showOtpForm): ?>

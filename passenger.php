@@ -1,0 +1,195 @@
+<?php
+session_start();
+include 'db.php';
+
+// Check if user is logged in and is a passenger
+if (!isset($_SESSION['username']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'passenger') {
+    header("Location: login.php");
+    exit();
+}
+
+$username = $_SESSION['username'];
+
+// Handle rating submission
+$conn = $GLOBALS['conn'];
+$message = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_rating'])) {
+    $selectedDriver = $_POST['driver'] ?? '';
+    $rating = intval($_POST['rating'] ?? 0);
+
+    if ($selectedDriver && $rating >= 1 && $rating <= 5) {
+        $sql = "INSERT INTO driver_ratings (driver_username, passenger_username, rating) VALUES (?, ?, ?)";
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "ssi", $selectedDriver, $username, $rating);
+        if (mysqli_stmt_execute($stmt)) {
+            $message = "Rating submitted successfully.";
+
+            // Log the rating action to activity_logs table in database
+            $logAction = "Passenger '{$username}' rated Driver '{$selectedDriver}' with {$rating} star(s).";
+            $logSql = "INSERT INTO activity_logs (username, action) VALUES (?, ?)";
+            $logStmt = mysqli_prepare($conn, $logSql);
+            mysqli_stmt_bind_param($logStmt, "ss", $username, $logAction);
+            mysqli_stmt_execute($logStmt);
+            mysqli_stmt_close($logStmt);
+
+        } else {
+            $message = "Failed to submit rating. Please try again.";
+        }
+        mysqli_stmt_close($stmt);
+    } else {
+        $message = "Please select a driver and a valid rating.";
+    }
+}
+
+// Fetch user details
+$sql = "SELECT first_name, last_name, user_picture_path FROM users WHERE username = ?";
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "s", $username);
+mysqli_stmt_execute($stmt);
+mysqli_stmt_bind_result($stmt, $firstName, $lastName, $userPicturePath);
+mysqli_stmt_fetch($stmt);
+mysqli_stmt_close($stmt);
+
+if (!$userPicturePath || empty($userPicturePath)) {
+  $userPicturePath = "img/datodalogo.jpg";
+} else {
+  if (!file_exists($userPicturePath)) {
+      $userPicturePath = "img/datodalogo.jpg";
+  }
+}
+
+// Fetch list of drivers
+$drivers = [];
+$sql = "SELECT username, first_name, last_name FROM users WHERE user_type = 'driver' AND approved = 1";
+$result = mysqli_query($conn, $sql);
+if ($result) {
+    while ($row = mysqli_fetch_assoc($result)) {
+        $drivers[] = $row;
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Passenger's Dashboard - Rangantodap</title>
+    <link rel="stylesheet" href="driver.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+<body>
+
+  <!-- Passenger Header -->
+  <div class="driver-header">
+    <img src="img/datodalogo.jpg" alt="Datoda Logo">
+    <h1>RANGANTODAPP - Passenger Dashboard</h1>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="slidebar">
+    <ul>
+      <li>
+        <a href="#" class="logo">
+          <span class="icon">
+            <img src="img/datodalogo.jpg" alt="Datoda Logo" style="width: 25px; height: 25px; object-fit: contain;">
+          </span>
+          <span class="text">RANGANTODAP</span>
+        </a>
+      </li>
+      <li><a href="#"><span class="icon"><i class="fa-solid fa-bell"></i></span><span class="text">ANNOUNCEMENT</span></a></li>
+      <li><a href="#"><span class="icon"><i class="fa-solid fa-star"></i></span><span class="text">RATE DRIVERS</span></a></li>
+      <li><a href="#"><span class="icon"><i class="fa-solid fa-user"></i></span><span class="text">PROFILE</span></a></li>
+      <li><a href="login.php?action=logout"><span class="icon"><i class="fa-solid fa-right-from-bracket"></i></span><span class="text">LOG OUT</span></a></li>
+    </ul>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+
+    <!-- Passenger Profile Picture in Top Right -->
+    <div class="driver-profile-section">
+      <img src="<?php echo htmlspecialchars($userPicturePath); ?>" alt="Passenger Profile Picture" id="passengerPhoto">
+      <p>Welcome, <?php echo htmlspecialchars($firstName . ' ' . $lastName); ?>!</p>
+    </div>
+
+    <!-- Announcements Section -->
+    <div class="announcement-section">
+      <div class="section-title">Announcements</div>
+      <p>This is where admin announcements will appear. You can display multiple announcements or bullet points here.</p>
+    </div>
+
+    <!-- Rating Module -->
+    <div class="rating-module">
+      <h2>Rate Your Driver</h2>
+      <?php if ($message): ?>
+        <p style="color: green;"><?php echo htmlspecialchars($message); ?></p>
+      <?php endif; ?>
+      <form method="POST" action="passenger.php">
+        <label for="driver">Select Driver:</label>
+        <select id="driver" name="driver" required>
+          <option value="">-- Select a driver --</option>
+          <?php foreach ($drivers as $driver): ?>
+            <option value="<?php echo htmlspecialchars($driver['username']); ?>">
+              <?php echo htmlspecialchars($driver['first_name'] . ' ' . $driver['last_name']); ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+
+        <div class="stars" id="starRating">
+          <i class="fa-regular fa-star" data-value="1"></i>
+          <i class="fa-regular fa-star" data-value="2"></i>
+          <i class="fa-regular fa-star" data-value="3"></i>
+          <i class="fa-regular fa-star" data-value="4"></i>
+          <i class="fa-regular fa-star" data-value="5"></i>
+        </div>
+        <input type="hidden" name="rating" id="ratingInput" value="0" />
+        <p>Your rating: <span id="ratingValue">0</span> star(s)</p>
+
+        <button type="submit" name="submit_rating">Submit Rating</button>
+      </form>
+    </div>
+
+  </div>
+
+  <script>
+    const stars = document.querySelectorAll('#starRating i');
+    const ratingValue = document.getElementById('ratingValue');
+    const ratingInput = document.getElementById('ratingInput');
+    let selectedRating = 0;
+
+    stars.forEach(star => {
+      star.addEventListener('mouseover', () => {
+        const val = parseInt(star.getAttribute('data-value'));
+        highlightStars(val);
+      });
+
+      star.addEventListener('mouseout', () => {
+        highlightStars(selectedRating);
+      });
+
+      star.addEventListener('click', () => {
+        selectedRating = parseInt(star.getAttribute('data-value'));
+        ratingValue.textContent = selectedRating;
+        ratingInput.value = selectedRating;
+        highlightStars(selectedRating);
+      });
+    });
+
+    function highlightStars(rating) {
+      stars.forEach(star => {
+        const val = parseInt(star.getAttribute('data-value'));
+        if (val <= rating) {
+          star.classList.remove('fa-regular');
+          star.classList.add('fa-solid');
+        } else {
+          star.classList.remove('fa-solid');
+          star.classList.add('fa-regular');
+        }
+      });
+    }
+  </script>
+
+</body>
+</html>

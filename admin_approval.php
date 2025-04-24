@@ -1,78 +1,67 @@
 <?php
-require_once 'session_manager.php';
+session_start();
+require_once 'db.php';
 
-define('USER_FILE', __DIR__ . DIRECTORY_SEPARATOR . 'users.txt');
+$conn = $GLOBALS['conn'];
 
-$sessionManager = new SessionManager();
-
-function readUsers() {
-    $users = [];
-    if (file_exists(USER_FILE)) {
-        $lines = file(USER_FILE, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            list($username, $email, $phone, $passwordHash, $verified, $approved) = explode(',', $line);
-            $users[$username] = [
-                'email' => $email,
-                'phone' => $phone,
-                'password' => $passwordHash,
-                'verified' => $verified === '1',
-                'approved' => $approved === '1'
-            ];
-        }
-    }
-    return $users;
-}
-
-function writeUsers($users) {
-    $lines = [];
-    foreach ($users as $username => $data) {
-        $lines[] = implode(',', [
-            $username,
-            $data['email'],
-            $data['phone'],
-            $data['password'],
-            $data['verified'] ? '1' : '0',
-            $data['approved'] ? '1' : '0'
-        ]);
-    }
-    file_put_contents(USER_FILE, implode(PHP_EOL, $lines));
+// Handle logout action
+if (isset($_GET['action']) && $_GET['action'] === 'logout') {
+    session_destroy();
+    header("Location: login.php");
+    exit();
 }
 
 // Check if user is logged in and is admin
-$sessionId = $_COOKIE['RangantodappSession'] ?? null;
-if (!$sessionId) {
+if (!isset($_SESSION['username']) || !isset($_SESSION['user_type'])) {
     header("Location: login.php");
     exit();
 }
-$sessionData = $sessionManager->getSession($sessionId);
-if (!$sessionData) {
-    header("Location: login.php");
-    exit();
-}
-$username = $sessionData['username'];
 
-$adminUsers = ['ADMIN'];
-if (!in_array($username, $adminUsers)) {
+$username = $_SESSION['username'];
+$userType = $_SESSION['user_type'];
+
+if (strtoupper($username) !== 'ADMIN' || $userType !== 'official') {
     echo "Access denied. You are not an admin.";
     exit();
 }
 
-$users = readUsers();
+// Fetch all users from database
+$sql = "SELECT * FROM users";
+$result = mysqli_query($conn, $sql);
+$users = [];
+if ($result) {
+    while ($row = mysqli_fetch_assoc($result)) {
+        $users[$row['username']] = $row;
+    }
+}
 
 if (!empty($_POST)) {
     $action = $_POST['action'] ?? '';
     $targetUser = $_POST['username'] ?? '';
 
-    if ($action && $targetUser && isset($users[$targetUser])) {
-        if ($action === 'approve') {
-            $users[$targetUser]['approved'] = true;
-        } elseif ($action === 'reject') {
-            unset($users[$targetUser]);
+        if ($action && $targetUser && isset($users[$targetUser])) {
+            if ($action === 'approve') {
+                $sql = "UPDATE users SET approved = 1 WHERE username = ?";
+                $stmt = mysqli_prepare($conn, $sql);
+                mysqli_stmt_bind_param($stmt, "s", $targetUser);
+                mysqli_stmt_execute($stmt);
+                mysqli_stmt_close($stmt);
+            } elseif ($action === 'reject') {
+                $sql = "DELETE FROM users WHERE username = ?";
+                $stmt = mysqli_prepare($conn, $sql);
+                mysqli_stmt_bind_param($stmt, "s", $targetUser);
+                mysqli_stmt_execute($stmt);
+                mysqli_stmt_close($stmt);
+            } elseif ($action === 'delete') {
+                $sql = "DELETE FROM users WHERE username = ?";
+                $stmt = mysqli_prepare($conn, $sql);
+                mysqli_stmt_bind_param($stmt, "s", $targetUser);
+                mysqli_stmt_execute($stmt);
+                mysqli_stmt_close($stmt);
+            }
+            header("Location: admin_approval.php");
+            exit();
         }
-        writeUsers($users);
-        header("Location: admin_approval.php");
-        exit();
-    }
 }
 
 // Filter users pending approval
@@ -132,7 +121,7 @@ $pendingUsers = array_filter($users, function($user) {
                 </a>
             </li>
             <li>
-                <a href="#">
+                <a href="login.php?action=logout">
                     <span class="icon"><i class="fa-solid fa-right-from-bracket"></i></span>
                     <span class="text">LOG OUT</span>
                 </a>
@@ -152,21 +141,18 @@ $pendingUsers = array_filter($users, function($user) {
             <h2>Activity Log</h2>
             <div class="activity-log">
                 <?php
-                $logFile = __DIR__ . DIRECTORY_SEPARATOR . 'activity_log.txt';
-                if (file_exists($logFile)) {
-                    $logs = file($logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-                    if (empty($logs)) {
-                        echo "<p>No activity logs available.</p>";
-                    } else {
-                        echo "<ul>";
-                        foreach (array_reverse($logs) as $log) {
-                            echo "<li>" . htmlspecialchars($log) . "</li>";
-                        }
-                        echo "</ul>";
+                // Fetch activity logs from database instead of text file
+                $sql = "SELECT username, action, created_at FROM activity_logs ORDER BY created_at DESC";
+                $result = mysqli_query($conn, $sql);
+                if ($result && mysqli_num_rows($result) > 0) {
+                    echo "<ul>";
+                    while ($row = mysqli_fetch_assoc($result)) {
+                        $logEntry = "[" . htmlspecialchars($row['created_at']) . "] " . htmlspecialchars($row['username']) . ": " . htmlspecialchars($row['action']);
+                        echo "<li>" . $logEntry . "</li>";
                     }
+                    echo "</ul>";
                 } else {
-                    // Since user confirmed file exists, this else block is unlikely to be reached
-                    echo "<p>Activity log file not found or inaccessible.</p>";
+                    echo "<p>No activity logs available.</p>";
                 }
                 ?>
             </div>
@@ -178,42 +164,58 @@ $pendingUsers = array_filter($users, function($user) {
                 <p>No users found.</p>
             <?php else: ?>
                 <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
-                    <thead>
-                        <tr>
-                            <th>Username</th>
-                            <th>Email</th>
-                            <th>Phone</th>
-                            <th>Verified</th>
-                            <th>Approved</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($users as $uname => $user): ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars($uname); ?></td>
-                                <td><?php echo htmlspecialchars($user['email']); ?></td>
-                                <td><?php echo htmlspecialchars($user['phone']); ?></td>
-                                <td><?php echo $user['verified'] ? 'Yes' : 'No'; ?></td>
-                                <td><?php echo $user['approved'] ? 'Yes' : 'No'; ?></td>
-                                <td>
-                                    <?php if (!$user['approved']): ?>
-                                        <form method="POST" style="display:inline;">
-                                            <input type="hidden" name="username" value="<?php echo htmlspecialchars($uname); ?>" />
-                                            <button type="submit" name="action" value="approve">Approve</button>
-                                        </form>
-                                        <form method="POST" style="display:inline; margin-left: 10px;">
-                                            <input type="hidden" name="username" value="<?php echo htmlspecialchars($uname); ?>" />
-                                            <button type="submit" name="action" value="reject" onclick="return confirm('Are you sure you want to reject this user?');">Reject</button>
-                                        </form>
-                                    <?php else: ?>
-                                        <span>Approved</span>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+    <thead>
+        <tr>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>User Type</th>
+            <th>Name</th>
+            <th>Verified</th>
+            <th>Approved</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php foreach ($users as $uname => $user): ?>
+            <tr>
+                <td><?php echo htmlspecialchars($uname); ?></td>
+                <td><?php echo htmlspecialchars($user['email'] ?? ''); ?></td>
+                <td><?php echo htmlspecialchars($user['phone'] ?? ''); ?></td>
+                <td><?php echo htmlspecialchars($user['user_type'] ?? ''); ?></td>
+                <td>
+                    <?php 
+                        $name = [];
+                        if (!empty($user['first_name'])) $name[] = htmlspecialchars($user['first_name']);
+                        if (!empty($user['middle_name'])) $name[] = htmlspecialchars($user['middle_name']);
+                        if (!empty($user['last_name'])) $name[] = htmlspecialchars($user['last_name']);
+                        echo implode(' ', $name);
+                    ?>
+                </td>
+                <td><?php echo ($user['verified'] ?? false) ? 'Yes' : 'No'; ?></td>
+                <td><?php echo ($user['approved'] ?? false) ? 'Yes' : 'No'; ?></td>
+                <td>
+                    <?php if (!($user['approved'] ?? false)): ?>
+                        <form method="POST" style="display:inline;">
+                            <input type="hidden" name="username" value="<?php echo htmlspecialchars($uname); ?>" />
+                            <button type="submit" name="action" value="approve">Approve</button>
+                        </form>
+                        <form method="POST" style="display:inline; margin-left: 10px;">
+                            <input type="hidden" name="username" value="<?php echo htmlspecialchars($uname); ?>" />
+                            <button type="submit" name="action" value="reject" onclick="return confirm('Are you sure you want to reject this user?');">Reject</button>
+                        </form>
+                    <?php else: ?>
+                        <span>Approved</span>
+                    <?php endif; ?>
+                    <form method="POST" style="display:inline; margin-left: 10px;">
+                        <input type="hidden" name="username" value="<?php echo htmlspecialchars($uname); ?>" />
+                        <button type="submit" name="action" value="delete" onclick="return confirm('Are you sure you want to delete this user account?');">Delete Account</button>
+                    </form>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+    </tbody>
+</table>
             <?php endif; ?>
         </section>
 
@@ -299,5 +301,60 @@ $pendingUsers = array_filter($users, function($user) {
             </script>
         </section>
     </div>
+    <div id="userDetailsModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+    <div class="modal-content" style="background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 800px;">
+        <span class="close" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+        <h2>User Details</h2>
+        <div id="userDetailsContent"></div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add View Details button to each user row
+    const userRows = document.querySelectorAll('table tbody tr');
+    userRows.forEach(row => {
+        const actionsCell = row.querySelector('td:last-child');
+        const username = row.querySelector('td:first-child').textContent;
+        
+        const viewDetailsBtn = document.createElement('button');
+        viewDetailsBtn.textContent = 'View Details';
+        viewDetailsBtn.style.marginLeft = '10px';
+        viewDetailsBtn.onclick = function() {
+            showUserDetails(username);
+            return false;
+        };
+        
+        actionsCell.appendChild(viewDetailsBtn);
+    });
+    
+    // Modal functionality
+    const modal = document.getElementById('userDetailsModal');
+    const closeBtn = document.querySelector('.close');
+    
+    closeBtn.onclick = function() {
+        modal.style.display = 'none';
+    };
+    
+    window.onclick = function(event) {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    };
+    
+    function showUserDetails(username) {
+        // AJAX request to get user details
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', `get_user_details.php?username=${encodeURIComponent(username)}`, true);
+        xhr.onload = function() {
+            if (this.status === 200) {
+                document.getElementById('userDetailsContent').innerHTML = this.responseText;
+                modal.style.display = 'block';
+            }
+        };
+        xhr.send();
+    }
+});
+</script>
 </body>
 </html>

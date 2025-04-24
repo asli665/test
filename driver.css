@@ -1,59 +1,200 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
 
 body {
-    margin: 0;
-    font-family: 'Poppins', sans-serif;
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  background-color: #1e3c72; /* Deep blue background */
+  color: #ffffff; /* White text for readability */
+  overflow-x: hidden; /* Prevent horizontal scroll */
 }
+
+/* Admin Header (Driver's Dashboard) */
+.driver-header {
+  margin-left: 250px; /* Space for the sidebar */
+  padding: 20px;
+  background-color: #2a5298;
+  color: #cce6ff;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000; /* Ensures the header stays on top */
+}
+
+.driver-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: bold;
+  text-shadow: 1px 1px 4px rgba(0,0,0,0.7);
+}
+
+.driver-header img {
+  max-width: 40px;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 0 8px rgba(0,0,0,0.3);
+}
+
+/* Sidebar */
 .slidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 70px;
-    height: 100vh;
-    background-color: #007bff; /* Changed background to blue */
-    padding-top: 20px;
-    transition: width 0.3s;
-    overflow-x: hidden;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 70px;
+  height: 100vh;
+  background-color: #007bff;
+  padding-top: 20px;
+  transition: width 0.3s;
+  overflow-x: hidden;
+  z-index: 999; /* Ensure sidebar stays above the content */
 }
+
 .slidebar:hover {
-    width: 250px;
+  width: 250px;
 }
+
 .slidebar ul {
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
 }
+
 .slidebar ul li {
-    padding: 15px 20px;
+  padding: 15px 20px;
 }
+
 .slidebar ul li a {
-    color: white;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    font-size: 18px;
-    transition: background-color 0.3s;
+  color: white;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  font-size: 18px;
+  transition: background-color 0.3s;
 }
+
 .slidebar ul li a:hover {
-    background-color: #0056b3; 
-    border-radius: 4px;
+  background-color: #0056b3;
+  border-radius: 4px;
 }
+
 .slidebar ul li a .icon {
-    margin-right: 15px;
-    width: 25px;
-    text-align: center;
+  margin-right: 15px;
+  width: 25px;
+  text-align: center;
 }
+
 .slidebar ul li a .icon i {
-    font-size: 20px;
-    color: white; /* Icon color white */
+  font-size: 20px;
+  color: white;
 }
+
 .slidebar ul li a .text {
-    white-space: nowrap;
-    opacity: 0;
-    transition: opacity 0.3s;
-    pointer-events: none;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
 }
+
 .slidebar:hover ul li a .text {
-    opacity: 1;
-    pointer-events: auto;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Main Content */
+.main-content {
+  margin-left: 70px; /* Adjust for sidebar width */
+  padding: 30px;
+  transition: margin-left 0.3s;
+  padding-top: 120px; /* Adjust for header height */
+}
+
+.slidebar:hover ~ .main-content {
+  margin-left: 250px;
+}
+
+/* Profile Section (Above the Announcements) */
+.driver-profile-section {
+  margin-bottom: 20px; /* Space between profile and announcements */
+  text-align: right; /* Align the profile section to the right */
+}
+
+.driver-profile-section img {
+  width: 120px; /* Size of the profile image */
+  height: 120px;
+  object-fit: cover;
+  border-radius: 50%; /* Circular image */
+  border: 3px solid #555;
+  box-shadow: 0 0 8px rgba(0,0,0,0.3);
+  float: right; /* This will float the image to the right */
+  margin-left: 20px; /* Space between the image and any other content */
+  margin-bottom: 20px; /* Space between the image and the announcement section */
+  cursor: pointer; /* Makes it clear that the image is clickable */
+}
+
+.announcement-section {
+   background: #ffffff; /* White background for the announcement section */
+    padding: 20px;
+    padding-top: 40px; /* Added padding-top to create space between the photo and announcement */
+    border-radius: 10px;
+    color: #333; /* Darker text color for readability */
+}
+
+/* Modal Styles */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed;
+  z-index: 1; /* Sit on top */
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgba(0, 0, 0, 0.4); /* Black background with opacity */
+  padding-top: 60px; /* Position the modal content at the top */
+}
+
+.modal-content {
+  background-color: #fff;
+  margin: 5% auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%; /* Modal width */
+  max-width: 600px; /* Maximum width */
+  color: #333;
+}
+
+.close {
+  color: #aaa;
+  font-size: 28px;
+  font-weight: bold;
+  position: absolute;
+  top: 0;
+  right: 15px;
+  padding: 10px;
+}
+
+.close:hover,
+.close:focus {
+  color: black;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* Ratings and Comments Section */
+#ratings {
+  margin-bottom: 20px;
+}
+
+#comments ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+#comments ul li {
+  margin-bottom: 10px;
+  font-size: 16px;
 }
