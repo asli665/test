@@ -57,6 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $lastName = trim($_POST['last_name'] ?? '');
         $firstName = trim($_POST['first_name'] ?? '');
         $middleName = trim($_POST['middle_name'] ?? '');
+        $userPicturePath = $_POST['user_picture_path'] ?? null;
 
         $resendOtp = $_POST['resend_otp'] ?? '';
 
@@ -229,20 +230,36 @@ if ($otp === $savedOtp) {
     $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
     $sql = "INSERT INTO users (username, email, phone, password, verified, approved, user_type, birthday, user_picture_path, last_name, first_name, middle_name) VALUES (?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?, ?)";
-    $stmt = mysqli_prepare($conn, $sql);
+    $container = $conn->prepare($sql);
     $userPicturePathParam = $userPicturePath ?? '';
-    if (!$stmt) {
-        error_log("MySQL prepare failed: " . mysqli_error($conn));
-        echo "<p>Database error: failed to prepare statement.</p>";
-    } else {
-        mysqli_stmt_bind_param($stmt, "ssssssssss", $username, $email, $phone, $passwordHash, $userType, $birthday, $userPicturePathParam, $lastName, $firstName, $middleName);
-        $execResult = mysqli_stmt_execute($stmt);
-        if (!$execResult) {
-            error_log("MySQL execute failed: " . mysqli_stmt_error($stmt));
-            echo "<p>Database error: failed to execute statement.</p>";
-        }
-        mysqli_stmt_close($stmt);
+    if (!$container) {
+        die("Prepare failed: " . $conn->error);
     }
+
+    // Debugging statements to log values before insertion
+    error_log("Debug: lastName='$lastName', firstName='$firstName', middleName='$middleName', userPicturePathParam='$userPicturePathParam'");
+
+    $bindResult = $container->bind_param(
+        "ssssssssss",
+        $username,
+        $email,
+        $phone,
+        $passwordHash,
+        $userType,
+        $birthday,
+        $userPicturePathParam,
+        $lastName,
+        $firstName,
+        $middleName
+    );
+    if (!$bindResult) {
+        die("Bind param failed: " . $container->error);
+    }
+    $execResult = $container->execute();
+    if (!$execResult) {
+        die("Execute failed: " . $container->error);
+    }
+    $container->close();
 
                     // Log registration action to activity_logs table
                     $logAction = "User '{$username}' registered an account.";
@@ -343,10 +360,15 @@ if ($otp === $savedOtp) {
                 <input type="hidden" name="phone" value="<?php echo htmlspecialchars($_POST['phone'] ?? ''); ?>" />
                 <input type="hidden" name="password" value="<?php echo htmlspecialchars($_POST['password'] ?? ''); ?>" />
                 <input type="hidden" name="birthday" value="<?php echo htmlspecialchars($_POST['birthday'] ?? ''); ?>" />
+                <input type="hidden" name="last_name" value="<?php echo htmlspecialchars($_POST['last_name'] ?? ''); ?>" />
+                <input type="hidden" name="first_name" value="<?php echo htmlspecialchars($_POST['first_name'] ?? ''); ?>" />
+                <input type="hidden" name="middle_name" value="<?php echo htmlspecialchars($_POST['middle_name'] ?? ''); ?>" />
+                <input type="hidden" name="user_picture_path" value="<?php echo htmlspecialchars($userPicturePath ?? ''); ?>" />
                 <label for="otp">Enter OTP:</label>
                 <input type="text" id="otp" name="otp" required />
 
                 <button type="submit">Verify OTP</button>
+                <button type="submit" name="resend_otp" value="1" style="margin-left: 10px;">Resend OTP</button>
             </form>
         <?php endif; ?>
     </div>

@@ -45,8 +45,73 @@ if (!empty($_POST)) {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'login') {
+        $resendOtp = $_POST['resend_otp'] ?? '';
+
         // Use session to persist username and password during OTP verification
-        if (empty($_POST['otp'])) {
+        if ($resendOtp === '1') {
+            $username = $_SESSION['login_username'] ?? '';
+            $password = $_SESSION['login_password'] ?? '';
+
+            if (!$username || !$password) {
+                $message = "Session expired. Please login again.";
+                $showOtpForm = false;
+            } else {
+                // Fetch user by username or email
+                $sql = "SELECT * FROM users WHERE username = ? OR email = ?";
+                $stmt = mysqli_prepare($conn, $sql);
+                mysqli_stmt_bind_param($stmt, "ss", $username, $username);
+                mysqli_stmt_execute($stmt);
+                $result = mysqli_stmt_get_result($stmt);
+                $user = mysqli_fetch_assoc($result);
+                mysqli_stmt_close($stmt);
+
+                if (!$user) {
+                    $message = "User not found.";
+                    $showOtpForm = false;
+                } else {
+                    // Check for existing valid OTP within last 5 minutes
+                    $sql = "SELECT otp_code, created_at FROM user_otps WHERE username = ? ORDER BY created_at DESC LIMIT 1";
+                    $stmt = mysqli_prepare($conn, $sql);
+                    mysqli_stmt_bind_param($stmt, "s", $user['username']);
+                    mysqli_stmt_execute($stmt);
+                    mysqli_stmt_bind_result($stmt, $existingOtp, $createdAt);
+                    $otpFound = mysqli_stmt_fetch($stmt);
+                    mysqli_stmt_close($stmt);
+
+                    $sendNewOtp = true;
+                    if ($otpFound) {
+                        $otpAge = time() - strtotime($createdAt);
+                        if ($otpAge <= 300) { // 5 minutes = 300 seconds
+                            $otp = $existingOtp;
+                            $sendNewOtp = false;
+                        }
+                    }
+
+                    if ($sendNewOtp) {
+                        // Generate new OTP
+                        $otp = '';
+                        for ($i = 0; $i < 6; $i++) {
+                            $otp .= rand(0, 9);
+                        }
+
+                        // Insert new OTP into database
+                        $sql = "INSERT INTO user_otps (username, otp_code) VALUES (?, ?)";
+                        $stmt = mysqli_prepare($conn, $sql);
+                        mysqli_stmt_bind_param($stmt, "ss", $user['username'], $otp);
+                        mysqli_stmt_execute($stmt);
+                        mysqli_stmt_close($stmt);
+                    }
+
+                    if (sendOtpEmail($user['email'], $otp)) {
+                        $message = "OTP resent to your email. Please verify.";
+                        $showOtpForm = true;
+                    } else {
+                        $message = "Failed to resend OTP email. Please try again.";
+                        $showOtpForm = true;
+                    }
+                }
+            }
+        } elseif (empty($_POST['otp'])) {
             $username = trim($_POST['username'] ?? '');
             $password = $_POST['password'] ?? '';
 
@@ -249,6 +314,7 @@ if (strtoupper($user['username']) === 'ADMIN') {
                 <input type="text" id="otp" name="otp" required />
 
                 <button type="submit">Verify OTP</button>
+                <button type="submit" name="resend_otp" value="1" style="margin-left: 10px;">Resend OTP</button>
             </form>
         <?php endif; ?>
     </div>

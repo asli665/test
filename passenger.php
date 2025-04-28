@@ -78,6 +78,16 @@ if ($result) {
     <title>Passenger's Dashboard - Rangantodap</title>
     <link rel="stylesheet" href="driver.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-o9N1j7kGkQY0h0v+v+3k5b5Q5b5Q5b5Q5b5Q5b5Q5b5Q="
+      crossorigin=""/>
+    <style>
+      #map {
+        height: 400px;
+        width: 100%;
+        margin-bottom: 20px;
+      }
+    </style>
 </head>
 <body>
 
@@ -120,6 +130,8 @@ if ($result) {
       <p>This is where admin announcements will appear. You can display multiple announcements or bullet points here.</p>
     </div>
 
+    <div id="map"></div>
+
     <!-- Rating Module -->
     <div class="rating-module">
       <h2>Rate Your Driver</h2>
@@ -153,42 +165,19 @@ if ($result) {
 
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-o9N1j7kGkQY0h0v+v+3k5b5Q5b5Q5b5Q5b5Q5b5Q5b5Q="
+    crossorigin=""></script>
   <script>
-    const stars = document.querySelectorAll('#starRating i');
-    const ratingValue = document.getElementById('ratingValue');
-    const ratingInput = document.getElementById('ratingInput');
-    let selectedRating = 0;
+    var map = L.map('map').setView([14.456, 121.183], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+    L.marker([14.456, 121.183]).addTo(map)
+        .bindPopup('Darangan, Binangonan, Rizal')
+        .openPopup();
 
-    stars.forEach(star => {
-      star.addEventListener('mouseover', () => {
-        const val = parseInt(star.getAttribute('data-value'));
-        highlightStars(val);
-      });
-
-      star.addEventListener('mouseout', () => {
-        highlightStars(selectedRating);
-      });
-
-      star.addEventListener('click', () => {
-        selectedRating = parseInt(star.getAttribute('data-value'));
-        ratingValue.textContent = selectedRating;
-        ratingInput.value = selectedRating;
-        highlightStars(selectedRating);
-      });
-    });
-
-    function highlightStars(rating) {
-      stars.forEach(star => {
-        const val = parseInt(star.getAttribute('data-value'));
-        if (val <= rating) {
-          star.classList.remove('fa-regular');
-          star.classList.add('fa-solid');
-        } else {
-          star.classList.remove('fa-solid');
-          star.classList.add('fa-regular');
-        }
-      });
-    }
   </script>
 
 </body>

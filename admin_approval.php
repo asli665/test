@@ -139,7 +139,7 @@ $pendingUsers = array_filter($users, function($user) {
 
         <section class="activity-log-section">
             <h2>Activity Log</h2>
-            <div class="activity-log">
+            <div class="activity-log" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px;">
                 <?php
                 // Fetch activity logs from database instead of text file
                 $sql = "SELECT username, action, created_at FROM activity_logs ORDER BY created_at DESC";
