@@ -166,6 +166,7 @@ $pendingUsers = array_filter($users, function($user) {
                 <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
     <thead>
         <tr>
+            <th>Picture</th>
             <th>Username</th>
             <th>Email</th>
             <th>Phone</th>
@@ -179,6 +180,13 @@ $pendingUsers = array_filter($users, function($user) {
     <tbody>
         <?php foreach ($users as $uname => $user): ?>
             <tr>
+                <td>
+                    <?php if (!empty($user['user_picture_path']) && file_exists($user['user_picture_path'])): ?>
+                        <img src="<?php echo htmlspecialchars($user['user_picture_path']); ?>" alt="User Picture" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;" />
+                    <?php else: ?>
+                        <img src="img/datodalogo.jpg" alt="No Picture" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;" />
+                    <?php endif; ?>
+                </td>
                 <td><?php echo htmlspecialchars($uname); ?></td>
                 <td><?php echo htmlspecialchars($user['email'] ?? ''); ?></td>
                 <td><?php echo htmlspecialchars($user['phone'] ?? ''); ?></td>
@@ -214,7 +222,7 @@ $pendingUsers = array_filter($users, function($user) {
                 </td>
             </tr>
         <?php endforeach; ?>
-    </tbody>
+</tbody>
 </table>
             <?php endif; ?>
         </section>

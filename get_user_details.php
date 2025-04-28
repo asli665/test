@@ -1,7 +1,7 @@
 <?php
 require_once 'session_manager.php';
 
-define('USER_FILE', __DIR__ . DIRECTORY_SEPARATOR . 'users.txt');
+require_once 'db.php';
 
 $sessionManager = new SessionManager();
 
@@ -31,51 +31,20 @@ if (!$requestedUsername) {
     exit();
 }
 
-// Read user data
-function readUsers() {
-    $users = [];
-    if (file_exists(USER_FILE)) {
-        $lines = file(USER_FILE, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            $parts = explode(',', $line);
-            $username = $parts[0] ?? '';
-            
-            // Create user entry with all possible fields
-            $users[$username] = [
-                'email' => $parts[1] ?? '',
-                'phone' => $parts[2] ?? '',
-                'password' => $parts[3] ?? '',
-                'verified' => ($parts[4] ?? '0') === '1',
-                'approved' => ($parts[5] ?? '0') === '1',
-                'user_type' => $parts[6] ?? '',
-                'last_name' => $parts[7] ?? '',
-                'first_name' => $parts[8] ?? '',
-                'middle_name' => $parts[9] ?? '',
-                'address' => $parts[10] ?? '',
-                'birthday' => $parts[11] ?? '',
-                'body_number' => $parts[12] ?? '',
-                'num_tricycles' => $parts[13] ?? '',
-                'drivers_names' => $parts[14] ?? '',
-                'operator_name' => $parts[15] ?? '',
-                'proof_of_employment_path' => $parts[16] ?? '',
-                'orcr_picture_path' => $parts[17] ?? '',
-                'toda_id_picture_path' => $parts[18] ?? '',
-                'user_picture_path' => $parts[19] ?? ''
-            ];
-        }
-    }
-    return $users;
-}
+$conn = $GLOBALS['conn'];
 
-$users = readUsers();
+$sql = "SELECT username, email, phone, verified, approved, user_type, last_name, first_name, middle_name, address, birthday, body_number, num_tricycles, drivers_names, operator_name, proof_of_employment_path, orcr_picture_path, toda_id_picture_path, user_picture_path FROM users WHERE username = ?";
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "s", $requestedUsername);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+$user = mysqli_fetch_assoc($result);
+mysqli_stmt_close($stmt);
 
-// Check if user exists
-if (!isset($users[$requestedUsername])) {
+if (!$user) {
     echo "User not found.";
     exit();
 }
-
-$user = $users[$requestedUsername];
 
 // Display user details
 ?>

@@ -58,76 +58,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $firstName = trim($_POST['first_name'] ?? '');
         $middleName = trim($_POST['middle_name'] ?? '');
 
-if (!$otp) {
-    $errors = [];
+        $resendOtp = $_POST['resend_otp'] ?? '';
 
-    if (!$userType) {
-        $errors[] = "User type is required.";
-    }
-    if (!$birthday) {
-        $errors[] = "Birthday is required.";
-    }
-    if (!$username || !$email || !$password) {
-        $errors[] = "Username, email, and password are required.";
-    }
-    if (!empty($errors)) {
-        $message = "Please correct the following errors:<br>" . implode("<br>", $errors);
-    } else {
-        // Handle file upload if provided
-        $userPicturePath = null;
-        if (isset($_FILES['user_picture']) && $_FILES['user_picture']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = 'img/uploads/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-            $fileTmpPath = $_FILES['user_picture']['tmp_name'];
-            $fileName = basename($_FILES['user_picture']['name']);
-            $fileSize = $_FILES['user_picture']['size'];
-            $fileType = $_FILES['user_picture']['type'];
-            $fileNameCmps = explode(".", $fileName);
-            $fileExtension = strtolower(end($fileNameCmps));
-
-            $allowedfileExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-            if (in_array($fileExtension, $allowedfileExtensions)) {
-                $newFileName = $username . '_' . time() . '.' . $fileExtension;
-                $destPath = $uploadDir . $newFileName;
-
-                if (move_uploaded_file($fileTmpPath, $destPath)) {
-                    $userPicturePath = $destPath;
-                } else {
-                    $message = "There was an error moving the uploaded file.";
-                }
-            } else {
-                $message = "Upload failed. Allowed file types: " . implode(", ", $allowedfileExtensions);
-            }
-        }
-
-$sql = "SELECT COUNT(*) as count FROM users WHERE username = ?";
-$stmt = mysqli_prepare($conn, $sql);
-mysqli_stmt_bind_param($stmt, "s", $username);
-mysqli_stmt_execute($stmt);
-mysqli_stmt_bind_result($stmt, $usernameCount);
-mysqli_stmt_fetch($stmt);
-mysqli_stmt_close($stmt);
-
-$sql = "SELECT COUNT(*) as count FROM users WHERE email = ?";
-$stmt = mysqli_prepare($conn, $sql);
-mysqli_stmt_bind_param($stmt, "s", $email);
-mysqli_stmt_execute($stmt);
-mysqli_stmt_bind_result($stmt, $emailCount);
-mysqli_stmt_fetch($stmt);
-mysqli_stmt_close($stmt);
-
-if ($usernameCount > 0) {
-    $message = "Username already exists.";
-} elseif ($emailCount > 0) {
-    $message = "Email already exists.";
-} else {
-            $otp = '';
-            for ($i = 0; $i < 6; $i++) {
-                $otp .= rand(0, 9);
-            }
-
+        if ($resendOtp === '1' && $username && $email) {
+            // Resend OTP logic
             $sql = "SELECT otp_code, created_at FROM user_otps WHERE username = ? ORDER BY created_at DESC LIMIT 1";
             $stmt = mysqli_prepare($conn, $sql);
             mysqli_stmt_bind_param($stmt, "s", $username);
@@ -146,6 +80,10 @@ if ($usernameCount > 0) {
             }
 
             if ($sendNewOtp) {
+                $otp = '';
+                for ($i = 0; $i < 6; $i++) {
+                    $otp .= rand(0, 9);
+                }
                 $sql = "INSERT INTO user_otps (username, otp_code) VALUES (?, ?)";
                 $stmt = mysqli_prepare($conn, $sql);
                 mysqli_stmt_bind_param($stmt, "ss", $username, $otp);
@@ -154,14 +92,126 @@ if ($usernameCount > 0) {
             }
 
             if (sendOtpEmail($email, $otp)) {
+                $message = "OTP resent to your email. Please verify.";
                 $showOtpForm = true;
-                $message = "OTP sent to your email. Please verify.";
             } else {
-                $message = "Failed to send OTP email. Please try again.";
+                $message = "Failed to resend OTP email. Please try again.";
+                $showOtpForm = true;
             }
-        }
-    }
-} else {
+        } elseif (!$otp) {
+            $errors = [];
+
+            if (!$userType) {
+                $errors[] = "User type is required.";
+            }
+            if (!$birthday) {
+                $errors[] = "Birthday is required.";
+            }
+            if (!$username || !$email || !$password) {
+                $errors[] = "Username, email, and password are required.";
+            }
+            if (!empty($errors)) {
+                $message = "Please correct the following errors:<br>" . implode("<br>", $errors);
+            } else {
+                // Validate email format
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    $message = "Invalid email format. Please enter a valid email address.";
+                } else {
+                    // Handle file upload if provided
+                    $userPicturePath = null;
+                    if (isset($_FILES['user_picture']) && $_FILES['user_picture']['error'] === UPLOAD_ERR_OK) {
+                        $uploadDir = 'img/uploads/';
+                        if (!is_dir($uploadDir)) {
+                            mkdir($uploadDir, 0755, true);
+                        }
+                        $fileTmpPath = $_FILES['user_picture']['tmp_name'];
+                        $fileName = basename($_FILES['user_picture']['name']);
+                        $fileSize = $_FILES['user_picture']['size'];
+                        $fileType = $_FILES['user_picture']['type'];
+                        $fileNameCmps = explode(".", $fileName);
+                        $fileExtension = strtolower(end($fileNameCmps));
+
+                        $allowedfileExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+                        if (in_array($fileExtension, $allowedfileExtensions)) {
+                            $newFileName = $username . '_' . time() . '.' . $fileExtension;
+                            $destPath = $uploadDir . $newFileName;
+
+                            if (move_uploaded_file($fileTmpPath, $destPath)) {
+                                $userPicturePath = $destPath;
+                            } else {
+                                $message = "There was an error moving the uploaded file.";
+                            }
+                        } else {
+                            $message = "Upload failed. Allowed file types: " . implode(", ", $allowedfileExtensions);
+                        }
+                    }
+
+                    $sql = "SELECT COUNT(*) as count FROM users WHERE username = ?";
+                    $stmt = mysqli_prepare($conn, $sql);
+                    mysqli_stmt_bind_param($stmt, "s", $username);
+                    mysqli_stmt_execute($stmt);
+                    mysqli_stmt_bind_result($stmt, $usernameCount);
+                    mysqli_stmt_fetch($stmt);
+                    mysqli_stmt_close($stmt);
+
+                    /* 
+                    // Temporarily disable email uniqueness check to allow duplicate emails for testing
+                    $sql = "SELECT COUNT(*) as count FROM users WHERE email = ?";
+                    $stmt = mysqli_prepare($conn, $sql);
+                    mysqli_stmt_bind_param($stmt, "s", $email);
+                    mysqli_stmt_execute($stmt);
+                    mysqli_stmt_bind_result($stmt, $emailCount);
+                    mysqli_stmt_fetch($stmt);
+                    mysqli_stmt_close($stmt);
+                    */
+
+                    if ($usernameCount > 0) {
+                        $message = "Username already exists.";
+                    /*
+                    } elseif ($emailCount > 0) {
+                        $message = "Email already exists.";
+                    */
+                    } else {
+                        $otp = '';
+                        for ($i = 0; $i < 6; $i++) {
+                            $otp .= rand(0, 9);
+                        }
+
+                        $sql = "SELECT otp_code, created_at FROM user_otps WHERE username = ? ORDER BY created_at DESC LIMIT 1";
+                        $stmt = mysqli_prepare($conn, $sql);
+                        mysqli_stmt_bind_param($stmt, "s", $username);
+                        mysqli_stmt_execute($stmt);
+                        mysqli_stmt_bind_result($stmt, $existingOtp, $createdAt);
+                        $otpFound = mysqli_stmt_fetch($stmt);
+                        mysqli_stmt_close($stmt);
+
+                        $sendNewOtp = true;
+                        if ($otpFound) {
+                            $otpAge = time() - strtotime($createdAt);
+                            if ($otpAge <= 300) {
+                                $otp = $existingOtp;
+                                $sendNewOtp = false;
+                            }
+                        }
+
+                        if ($sendNewOtp) {
+                            $sql = "INSERT INTO user_otps (username, otp_code) VALUES (?, ?)";
+                            $stmt = mysqli_prepare($conn, $sql);
+                            mysqli_stmt_bind_param($stmt, "ss", $username, $otp);
+                            mysqli_stmt_execute($stmt);
+                            mysqli_stmt_close($stmt);
+                        }
+
+                        if (sendOtpEmail($email, $otp)) {
+                            $showOtpForm = true;
+                            $message = "OTP sent to your email. Please verify.";
+                        } else {
+                            $message = "Failed to send OTP email. Please try again.";
+                        }
+                    }
+                }
+            }
+        } else {
             $sql = "SELECT otp_code FROM user_otps WHERE username = ? ORDER BY created_at DESC LIMIT 1";
             $stmt = mysqli_prepare($conn, $sql);
             mysqli_stmt_bind_param($stmt, "s", $username);
@@ -174,22 +224,33 @@ if ($usernameCount > 0) {
                 $message = "No OTP found. Please register again.";
                 $showOtpForm = false;
             } else {
-                if ($otp === $savedOtp) {
-                    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+if ($otp === $savedOtp) {
 
-                            $sql = "INSERT INTO users (username, email, phone, password, verified, approved, user_type, birthday, user_picture_path, last_name, first_name, middle_name) VALUES (?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?, ?)";
-                            $stmt = mysqli_prepare($conn, $sql);
-                            mysqli_stmt_bind_param($stmt, "ssssssssss", $username, $email, $phone, $passwordHash, $userType, $birthday, $userPicturePath, $lastName, $firstName, $middleName);
-                            mysqli_stmt_execute($stmt);
-                            mysqli_stmt_close($stmt);
+    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
-                            // Log registration action to activity_logs table
-                            $logAction = "User '{$username}' registered an account.";
-                            $logSql = "INSERT INTO activity_logs (username, action) VALUES (?, ?)";
-                            $logStmt = mysqli_prepare($conn, $logSql);
-                            mysqli_stmt_bind_param($logStmt, "ss", $username, $logAction);
-                            mysqli_stmt_execute($logStmt);
-                            mysqli_stmt_close($logStmt);
+    $sql = "INSERT INTO users (username, email, phone, password, verified, approved, user_type, birthday, user_picture_path, last_name, first_name, middle_name) VALUES (?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?, ?)";
+    $stmt = mysqli_prepare($conn, $sql);
+    $userPicturePathParam = $userPicturePath ?? '';
+    if (!$stmt) {
+        error_log("MySQL prepare failed: " . mysqli_error($conn));
+        echo "<p>Database error: failed to prepare statement.</p>";
+    } else {
+        mysqli_stmt_bind_param($stmt, "ssssssssss", $username, $email, $phone, $passwordHash, $userType, $birthday, $userPicturePathParam, $lastName, $firstName, $middleName);
+        $execResult = mysqli_stmt_execute($stmt);
+        if (!$execResult) {
+            error_log("MySQL execute failed: " . mysqli_stmt_error($stmt));
+            echo "<p>Database error: failed to execute statement.</p>";
+        }
+        mysqli_stmt_close($stmt);
+    }
+
+                    // Log registration action to activity_logs table
+                    $logAction = "User '{$username}' registered an account.";
+                    $logSql = "INSERT INTO activity_logs (username, action) VALUES (?, ?)";
+                    $logStmt = mysqli_prepare($conn, $logSql);
+                    mysqli_stmt_bind_param($logStmt, "ss", $username, $logAction);
+                    mysqli_stmt_execute($logStmt);
+                    mysqli_stmt_close($logStmt);
 
                     $sql = "DELETE FROM user_otps WHERE username = ?";
                     $stmt = mysqli_prepare($conn, $sql);
