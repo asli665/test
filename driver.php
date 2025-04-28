@@ -135,7 +135,30 @@ error_log("Final driver profile picture path: " . $userPicturePath);
     <!-- 📢 Announcements Section -->
     <div class="announcement-section">
       <div class="section-title">Announcements</div>
-      <p>This is where admin announcements will appear. You can display multiple announcements or bullet points here.</p>
+      <?php
+        $stmt = mysqli_prepare($conn, "SELECT announcement_text, image_path, created_at FROM announcements ORDER BY created_at DESC");
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_bind_result($stmt, $announcementText, $imagePath, $createdAt);
+        $announcements = [];
+        while (mysqli_stmt_fetch($stmt)) {
+            $announcements[] = ['text' => $announcementText, 'image' => $imagePath, 'created_at' => $createdAt];
+        }
+        mysqli_stmt_close($stmt);
+
+        if (empty($announcements)) {
+            echo "<p>No announcements available.</p>";
+        } else {
+            foreach ($announcements as $ann) {
+                echo "<div style='border-bottom: 1px solid #ddd; margin-bottom: 10px; padding-bottom: 10px;'>";
+                echo "<p>" . nl2br(htmlspecialchars($ann['text'])) . "</p>";
+                if (!empty($ann['image'])) {
+                    echo "<img src='" . htmlspecialchars($ann['image']) . "' alt='Announcement Image' style='max-width: 100%; height: auto; margin-top: 5px;' />";
+                }
+                echo "<small style='color: #666; font-size: 0.8em;'>Posted on " . htmlspecialchars($ann['created_at']) . "</small>";
+                echo "</div>";
+            }
+        }
+      ?>
     </div>
 
     <div id="mapContainer" style="width: 100%; height: 400px; margin-bottom: 20px;">

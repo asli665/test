@@ -35,6 +35,7 @@ if ($result) {
     }
 }
 
+
 if (!empty($_POST)) {
     $action = $_POST['action'] ?? '';
     $targetUser = $_POST['username'] ?? '';
@@ -62,6 +63,39 @@ if (!empty($_POST)) {
             header("Location: admin_approval.php");
             exit();
         }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['announcement'])) {
+    // Handle announcement image upload
+    $announcement = trim($_POST['announcement']);
+    $imagePath = null;
+
+    if (!empty($_FILES['announcement_image']['name'])) {
+        $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'announcements' . DIRECTORY_SEPARATOR;
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        $imageName = basename($_FILES['announcement_image']['name']);
+        $targetFile = $uploadDir . $imageName;
+        $imageFileType = strtolower(pathinfo($targetFile, PATHINFO_EXTENSION));
+        $allowedTypes = ['jpg', 'jpeg', 'png', 'gif'];
+
+        if (in_array($imageFileType, $allowedTypes)) {
+            if (move_uploaded_file($_FILES['announcement_image']['tmp_name'], $targetFile)) {
+                $imagePath = 'uploads/announcements/' . $imageName;
+            }
+        }
+    }
+
+    if ($announcement !== '') {
+        $stmt = mysqli_prepare($conn, "INSERT INTO announcements (announcement_text, image_path) VALUES (?, ?)");
+        mysqli_stmt_bind_param($stmt, "ss", $announcement, $imagePath);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+
+        header("Location: admin_approval.php");
+        exit();
+    }
 }
 
 // Filter users pending approval
@@ -229,41 +263,39 @@ $pendingUsers = array_filter($users, function($user) {
 
         <section class="announcement-section" style="margin-top: 20px;">
             <h2>Add Announcement</h2>
-            <?php
-            $announcementFile = __DIR__ . DIRECTORY_SEPARATOR . 'announcements.txt';
-            if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['announcement'])) {
-                $announcement = trim($_POST['announcement']);
-                if ($announcement !== '') {
-                    file_put_contents($announcementFile, date('Y-m-d H:i:s') . " - " . $announcement . PHP_EOL, FILE_APPEND);
-                    header("Location: admin_approval.php");
-                    exit();
-                }
-            }
-            ?>
-            <form method="POST" action="admin_approval.php">
+            <form method="POST" action="admin_approval.php" enctype="multipart/form-data">
                 <textarea name="announcement" rows="3" cols="50" placeholder="Enter announcement here..." required></textarea><br />
+                <label for="announcement_image">Upload Image (optional):</label>
+                <input type="file" name="announcement_image" id="announcement_image" accept="image/*" /><br />
                 <button type="submit">Add Announcement</button>
             </form>
             <h3>Announcements</h3>
-            <div class="announcements" style="max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #f9f9f9;">
-                <?php
-                if (file_exists($announcementFile)) {
-                    $announcements = file($announcementFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-                    if (empty($announcements)) {
-                        echo "<p>No announcements available.</p>";
-                    } else {
-                        echo "<ul>";
-                        foreach (array_reverse($announcements) as $ann) {
-                            echo "<li>" . htmlspecialchars($ann) . "</li>";
-                        }
-                        echo "</ul>";
-                    }
-                } else {
-                    echo "<p>No announcements found.</p>";
+            <div class="announcements" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #f9f9f9;">
+            <?php
+                $stmt = mysqli_prepare($conn, "SELECT announcement_text, image_path, created_at FROM announcements ORDER BY created_at DESC");
+                mysqli_stmt_execute($stmt);
+                mysqli_stmt_bind_result($stmt, $announcementText, $imagePath, $createdAt);
+                $announcements = [];
+                while (mysqli_stmt_fetch($stmt)) {
+                    $announcements[] = ['text' => $announcementText, 'image' => $imagePath, 'created_at' => $createdAt];
                 }
-                ?>
+                mysqli_stmt_close($stmt);
+
+                if (empty($announcements)) {
+                    echo "<p>No announcements available.</p>";
+                } else {
+                    foreach ($announcements as $ann) {
+                        echo "<div style='border-bottom: 1px solid #ddd; margin-bottom: 10px; padding-bottom: 10px;'>";
+                        echo "<p>" . nl2br(htmlspecialchars($ann['text'])) . "</p>";
+                        if (!empty($ann['image'])) {
+                            echo "<img src='" . htmlspecialchars($ann['image']) . "' alt='Announcement Image' style='max-width: 100%; height: auto; margin-top: 5px;' />";
+                        }
+                        echo "<small style='color: #666; font-size: 0.8em;'>Posted on " . htmlspecialchars($ann['created_at']) . "</small>";
+                        echo "</div>";
+                    }
+                }
+            ?>
             </div>
-        </section>
 
         <section class="user-stats-section" style="margin-top: 20px;">
             <h2>User Statistics</h2>

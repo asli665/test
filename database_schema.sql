@@ -7,3 +7,10 @@ CREATE TABLE IF NOT EXISTS messages (
     FOREIGN KEY (driver_username) REFERENCES users(username),
     FOREIGN KEY (passenger_username) REFERENCES users(username)
 );
+
+CREATE TABLE IF NOT EXISTS announcements (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    announcement_text TEXT NOT NULL,
+    image_path VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
