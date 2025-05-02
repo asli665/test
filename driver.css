@@ -117,9 +117,11 @@ body {
 }
 
 /* Profile Section (Above the Announcements) */
+
 .driver-profile-section {
   margin-bottom: 20px; /* Space between profile and announcements */
   text-align: right; /* Align the profile section to the right */
+  padding: 10px;
 }
 
 .driver-profile-section img {
@@ -135,6 +137,7 @@ body {
   cursor: pointer; /* Makes it clear that the image is clickable */
 }
 
+
 .announcement-section {
    background: #ffffff; /* White background for the announcement section */
     padding: 20px;
@@ -147,7 +150,7 @@ body {
 .modal {
   display: none; /* Hidden by default */
   position: fixed;
-  z-index: 1100; /* Sit on top, increased for visibility */
+  z-index: 1; /* Sit on top */
   left: 0;
   top: 0;
   width: 100%;
@@ -226,10 +229,117 @@ body {
 }
 .member-name {
     font-weight: bold;
+    color: #000;
     margin-bottom: 5px;
 }
 .member-phone, .member-address {
     font-size: 0.9em;
     color: #555;
     margin-bottom: 3px;
+}
+
+.main-content {
+  margin-left: 70px;
+  padding: 30px;
+  padding-top: 120px;
+}
+
+/* Profile Container */
+.profile-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 50px;
+}
+
+.profile-card {
+  background-color: #fff;
+  width: 100%;
+  max-width: 900px;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin: 20px;
+  padding: 20px;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+}
+
+.profile-pic {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 4px solid #2a5298;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+  margin-right: 20px;
+  cursor: pointer;
+}
+
+.profile-info h2 {
+  font-size: 1.8rem;
+  margin: 0;
+  color: #2a5298;
+}
+
+.profile-info p {
+  color: #555;
+  font-size: 1rem;
+}
+
+.profile-body h3 {
+  font-size: 1.5rem;
+  color: #2a5298;
+  margin-bottom: 10px;
+}
+
+.profile-body p {
+  margin: 8px 0;
+}
+
+.profile-body strong {
+  color: #2a5298;
+}
+.stars i {
+  cursor: pointer;
+  font-size: 2em;
+  color: #ccc;
+}
+.stars i.fas {
+  color: gold;
+}
+#map {
+  height: 400px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+/* Ensure modal is visible and on top */
+#ratingModal {
+  display: none;
+  position: fixed;
+  z-index: 2000 !important;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0,0,0,0.5);
+  padding-top: 60px;
+}
+#ratingModal .modal-content {
+  background-color: #fff;
+  margin: 5% auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%;
+  max-width: 600px;
+  color: #333;
+  position: relative;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }

@@ -10,6 +10,18 @@ session_start();
 $showOtpForm = false;
 $message = '';
 
+// Fetch OTP verification setting
+$otpVerificationEnabled = '1'; // default enabled
+$stmt = mysqli_prepare($conn, "SELECT setting_value FROM settings WHERE setting_key = 'otp_verification_enabled' LIMIT 1");
+if ($stmt) {
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_bind_result($stmt, $settingValue);
+    if (mysqli_stmt_fetch($stmt)) {
+        $otpVerificationEnabled = $settingValue;
+    }
+    mysqli_stmt_close($stmt);
+}
+
 function sendOtpEmail($toEmail, $otp) {
     $mail = new PHPMailer(true);
     try {
@@ -69,45 +81,80 @@ if (!empty($_POST)) {
                     $message = "User not found.";
                     $showOtpForm = false;
                 } else {
-                    // Check for existing valid OTP within last 5 minutes
-                    $sql = "SELECT otp_code, created_at FROM user_otps WHERE username = ? ORDER BY created_at DESC LIMIT 1";
-                    $stmt = mysqli_prepare($conn, $sql);
-                    mysqli_stmt_bind_param($stmt, "s", $user['username']);
-                    mysqli_stmt_execute($stmt);
-                    mysqli_stmt_bind_result($stmt, $existingOtp, $createdAt);
-                    $otpFound = mysqli_stmt_fetch($stmt);
-                    mysqli_stmt_close($stmt);
-
-                    $sendNewOtp = true;
-                    if ($otpFound) {
-                        $otpAge = time() - strtotime($createdAt);
-                        if ($otpAge <= 300) { // 5 minutes = 300 seconds
-                            $otp = $existingOtp;
-                            $sendNewOtp = false;
-                        }
-                    }
-
-                    if ($sendNewOtp) {
-                        // Generate new OTP
-                        $otp = '';
-                        for ($i = 0; $i < 6; $i++) {
-                            $otp .= rand(0, 9);
-                        }
-
-                        // Insert new OTP into database
-                        $sql = "INSERT INTO user_otps (username, otp_code) VALUES (?, ?)";
+                    if ($otpVerificationEnabled === '1') {
+                        // Check for existing valid OTP within last 5 minutes
+                        $sql = "SELECT otp_code, created_at FROM user_otps WHERE username = ? ORDER BY created_at DESC LIMIT 1";
                         $stmt = mysqli_prepare($conn, $sql);
-                        mysqli_stmt_bind_param($stmt, "ss", $user['username'], $otp);
+                        mysqli_stmt_bind_param($stmt, "s", $user['username']);
                         mysqli_stmt_execute($stmt);
+                        mysqli_stmt_bind_result($stmt, $existingOtp, $createdAt);
+                        $otpFound = mysqli_stmt_fetch($stmt);
                         mysqli_stmt_close($stmt);
-                    }
 
-                    if (sendOtpEmail($user['email'], $otp)) {
-                        $message = "OTP resent to your email. Please verify.";
-                        $showOtpForm = true;
+                        $sendNewOtp = true;
+                        if ($otpFound) {
+                            $otpAge = time() - strtotime($createdAt);
+                            if ($otpAge <= 300) { // 5 minutes = 300 seconds
+                                $otp = $existingOtp;
+                                $sendNewOtp = false;
+                            }
+                        }
+
+                        if ($sendNewOtp) {
+                            // Generate new OTP
+                            $otp = '';
+                            for ($i = 0; $i < 6; $i++) {
+                                $otp .= rand(0, 9);
+                            }
+
+                            // Insert new OTP into database
+                            $sql = "INSERT INTO user_otps (username, otp_code) VALUES (?, ?)";
+                            $stmt = mysqli_prepare($conn, $sql);
+                            mysqli_stmt_bind_param($stmt, "ss", $user['username'], $otp);
+                            mysqli_stmt_execute($stmt);
+                            mysqli_stmt_close($stmt);
+                        }
+
+                        if (sendOtpEmail($user['email'], $otp)) {
+                            $message = "OTP resent to your email. Please verify.";
+                            $showOtpForm = true;
+                        } else {
+                            $message = "Failed to resend OTP email. Please try again.";
+                            $showOtpForm = true;
+                        }
                     } else {
-                        $message = "Failed to resend OTP email. Please try again.";
-                        $showOtpForm = true;
+                        // OTP verification disabled, log user in directly
+                        $_SESSION['username'] = $user['username'];
+                        $_SESSION['user_type'] = $user['user_type'];
+
+                        // Log login action to activity_logs table
+                        $logAction = "User '{$user['username']}' logged in.";
+                        $logSql = "INSERT INTO activity_logs (username, action) VALUES (?, ?)";
+                        $logStmt = mysqli_prepare($conn, $logSql);
+                        mysqli_stmt_bind_param($logStmt, "ss", $user['username'], $logAction);
+                        mysqli_stmt_execute($logStmt);
+                        mysqli_stmt_close($logStmt);
+
+                        // Clear temporary login session variables
+                        unset($_SESSION['login_username']);
+                        unset($_SESSION['login_password']);
+
+                        if (strtoupper($user['username']) === 'ADMIN') {
+                            header("Location: admin_approval.php");
+                            exit();
+                        } else {
+                            if ($user['user_type'] === 'passenger') {
+                                header("Location: passenger.php");
+                                exit();
+                            } elseif ($user['user_type'] === 'driver') {
+                                header("Location: driver.php");
+                                exit();
+                            } else {
+                                // Default fallback
+                                header("Location: login.php");
+                                exit();
+                            }
+                        }
                     }
                 }
             }
@@ -136,48 +183,79 @@ if (!empty($_POST)) {
                         if (!$user['approved']) {
                             $message = "Your account is awaiting admin approval.";
                         } else {
-                            // Store username and password in session for OTP verification
-                            $_SESSION['login_username'] = $username;
-                            $_SESSION['login_password'] = $password;
+                            if ($otpVerificationEnabled === '1') {
+                                // Store username and password in session for OTP verification
+                                $_SESSION['login_username'] = $username;
+                                $_SESSION['login_password'] = $password;
 
-                            // Check for existing valid OTP within last 5 minutes
-                            $sql = "SELECT otp_code, created_at FROM user_otps WHERE username = ? ORDER BY created_at DESC LIMIT 1";
-                            $stmt = mysqli_prepare($conn, $sql);
-                            mysqli_stmt_bind_param($stmt, "s", $user['username']);
-                            mysqli_stmt_execute($stmt);
-                            mysqli_stmt_bind_result($stmt, $existingOtp, $createdAt);
-                            $otpFound = mysqli_stmt_fetch($stmt);
-                            mysqli_stmt_close($stmt);
-
-                            $sendNewOtp = true;
-                            if ($otpFound) {
-                                $otpAge = time() - strtotime($createdAt);
-                                if ($otpAge <= 300) { // 5 minutes = 300 seconds
-                                    $otp = $existingOtp;
-                                    $sendNewOtp = false;
-                                }
-                            }
-
-                            if ($sendNewOtp) {
-                                // Generate new OTP
-                                $otp = '';
-                                for ($i = 0; $i < 6; $i++) {
-                                    $otp .= rand(0, 9);
-                                }
-
-                                // Insert new OTP into database
-                                $sql = "INSERT INTO user_otps (username, otp_code) VALUES (?, ?)";
+                                // Check for existing valid OTP within last 5 minutes
+                                $sql = "SELECT otp_code, created_at FROM user_otps WHERE username = ? ORDER BY created_at DESC LIMIT 1";
                                 $stmt = mysqli_prepare($conn, $sql);
-                                mysqli_stmt_bind_param($stmt, "ss", $user['username'], $otp);
+                                mysqli_stmt_bind_param($stmt, "s", $user['username']);
                                 mysqli_stmt_execute($stmt);
+                                mysqli_stmt_bind_result($stmt, $existingOtp, $createdAt);
+                                $otpFound = mysqli_stmt_fetch($stmt);
                                 mysqli_stmt_close($stmt);
-                            }
 
-                            if (sendOtpEmail($user['email'], $otp)) {
-                                $showOtpForm = true;
-                                $message = "OTP sent to your email. Please verify.";
+                                $sendNewOtp = true;
+                                if ($otpFound) {
+                                    $otpAge = time() - strtotime($createdAt);
+                                    if ($otpAge <= 300) { // 5 minutes = 300 seconds
+                                        $otp = $existingOtp;
+                                        $sendNewOtp = false;
+                                    }
+                                }
+
+                                if ($sendNewOtp) {
+                                    // Generate new OTP
+                                    $otp = '';
+                                    for ($i = 0; $i < 6; $i++) {
+                                        $otp .= rand(0, 9);
+                                    }
+
+                                    // Insert new OTP into database
+                                    $sql = "INSERT INTO user_otps (username, otp_code) VALUES (?, ?)";
+                                    $stmt = mysqli_prepare($conn, $sql);
+                                    mysqli_stmt_bind_param($stmt, "ss", $user['username'], $otp);
+                                    mysqli_stmt_execute($stmt);
+                                    mysqli_stmt_close($stmt);
+                                }
+
+                                if (sendOtpEmail($user['email'], $otp)) {
+                                    $showOtpForm = true;
+                                    $message = "OTP sent to your email. Please verify.";
+                                } else {
+                                    $message = "Failed to send OTP email. Please try again.";
+                                }
                             } else {
-                                $message = "Failed to send OTP email. Please try again.";
+                                // OTP verification disabled, log user in directly
+                                $_SESSION['username'] = $user['username'];
+                                $_SESSION['user_type'] = $user['user_type'];
+
+                                // Log login action to activity_logs table
+                                $logAction = "User '{$user['username']}' logged in.";
+                                $logSql = "INSERT INTO activity_logs (username, action) VALUES (?, ?)";
+                                $logStmt = mysqli_prepare($conn, $logSql);
+                                mysqli_stmt_bind_param($logStmt, "ss", $user['username'], $logAction);
+                                mysqli_stmt_execute($logStmt);
+                                mysqli_stmt_close($logStmt);
+
+                                if (strtoupper($user['username']) === 'ADMIN') {
+                                    header("Location: admin_approval.php");
+                                    exit();
+                                } else {
+                                    if ($user['user_type'] === 'passenger') {
+                                        header("Location: passenger.php");
+                                        exit();
+                                    } elseif ($user['user_type'] === 'driver') {
+                                        header("Location: driver.php");
+                                        exit();
+                                    } else {
+                                        // Default fallback
+                                        header("Location: login.php");
+                                        exit();
+                                    }
+                                }
                             }
                         }
                     }
@@ -206,62 +284,97 @@ if (!empty($_POST)) {
                     $message = "User not found.";
                     $showOtpForm = false;
                 } else {
-                    // Verify OTP
-                    $sql = "SELECT otp_code FROM user_otps WHERE username = ? ORDER BY created_at DESC LIMIT 1";
-                    $stmt = mysqli_prepare($conn, $sql);
-                    mysqli_stmt_bind_param($stmt, "s", $user['username']);
-                    mysqli_stmt_execute($stmt);
-                    mysqli_stmt_bind_result($stmt, $savedOtp);
-                    $otpFound = mysqli_stmt_fetch($stmt);
-                    mysqli_stmt_close($stmt);
+                    if ($otpVerificationEnabled === '1') {
+                        // Verify OTP
+                        $sql = "SELECT otp_code FROM user_otps WHERE username = ? ORDER BY created_at DESC LIMIT 1";
+                        $stmt = mysqli_prepare($conn, $sql);
+                        mysqli_stmt_bind_param($stmt, "s", $user['username']);
+                        mysqli_stmt_execute($stmt);
+                        mysqli_stmt_bind_result($stmt, $savedOtp);
+                        $otpFound = mysqli_stmt_fetch($stmt);
+                        mysqli_stmt_close($stmt);
 
-                    if (!$otpFound) {
-                        $message = "No OTP found. Please login again.";
-                        $showOtpForm = false;
-                    } else {
-                        if ($otp === $savedOtp) {
-                            // Delete OTP after successful login
-                            $sql = "DELETE FROM user_otps WHERE username = ?";
-                            $stmt = mysqli_prepare($conn, $sql);
-                            mysqli_stmt_bind_param($stmt, "s", $user['username']);
-                            mysqli_stmt_execute($stmt);
-                            mysqli_stmt_close($stmt);
-
-                            // Set session variables
-                            $_SESSION['username'] = $user['username'];
-                            $_SESSION['user_type'] = $user['user_type'];
-
-                            // Log login action to activity_logs table
-                            $logAction = "User '{$user['username']}' logged in.";
-                            $logSql = "INSERT INTO activity_logs (username, action) VALUES (?, ?)";
-                            $logStmt = mysqli_prepare($conn, $logSql);
-                            mysqli_stmt_bind_param($logStmt, "ss", $user['username'], $logAction);
-                            mysqli_stmt_execute($logStmt);
-                            mysqli_stmt_close($logStmt);
-
-                            // Clear temporary login session variables
-                            unset($_SESSION['login_username']);
-                            unset($_SESSION['login_password']);
-
-if (strtoupper($user['username']) === 'ADMIN') {
-    header("Location: admin_approval.php");
-    exit();
-} else {
-    if ($user['user_type'] === 'passenger') {
-        header("Location: passenger.php");
-        exit();
-    } elseif ($user['user_type'] === 'driver') {
-        header("Location: driver.php");
-        exit();
-    } else {
-        // Default fallback
-        header("Location: login.php");
-        exit();
-    }
-}
+                        if (!$otpFound) {
+                            $message = "No OTP found. Please login again.";
+                            $showOtpForm = false;
                         } else {
-                            $message = "Invalid OTP. Please try again.";
-                            $showOtpForm = true;
+                            if ($otp === $savedOtp) {
+                                // Delete OTP after successful login
+                                $sql = "DELETE FROM user_otps WHERE username = ?";
+                                $stmt = mysqli_prepare($conn, $sql);
+                                mysqli_stmt_bind_param($stmt, "s", $user['username']);
+                                mysqli_stmt_execute($stmt);
+                                mysqli_stmt_close($stmt);
+
+                                // Set session variables
+                                $_SESSION['username'] = $user['username'];
+                                $_SESSION['user_type'] = $user['user_type'];
+
+                                // Log login action to activity_logs table
+                                $logAction = "User '{$user['username']}' logged in.";
+                                $logSql = "INSERT INTO activity_logs (username, action) VALUES (?, ?)";
+                                $logStmt = mysqli_prepare($conn, $logSql);
+                                mysqli_stmt_bind_param($logStmt, "ss", $user['username'], $logAction);
+                                mysqli_stmt_execute($logStmt);
+                                mysqli_stmt_close($logStmt);
+
+                                // Clear temporary login session variables
+                                unset($_SESSION['login_username']);
+                                unset($_SESSION['login_password']);
+
+                                if (strtoupper($user['username']) === 'ADMIN') {
+                                    header("Location: admin_approval.php");
+                                    exit();
+                                } else {
+                                    if ($user['user_type'] === 'passenger') {
+                                        header("Location: passenger.php");
+                                        exit();
+                                    } elseif ($user['user_type'] === 'driver') {
+                                        header("Location: driver.php");
+                                        exit();
+                                    } else {
+                                        // Default fallback
+                                        header("Location: login.php");
+                                        exit();
+                                    }
+                                }
+                            } else {
+                                $message = "Invalid OTP. Please try again.";
+                                $showOtpForm = true;
+                            }
+                        }
+                    } else {
+                        // OTP verification disabled, log user in directly
+                        $_SESSION['username'] = $user['username'];
+                        $_SESSION['user_type'] = $user['user_type'];
+
+                        // Log login action to activity_logs table
+                        $logAction = "User '{$user['username']}' logged in.";
+                        $logSql = "INSERT INTO activity_logs (username, action) VALUES (?, ?)";
+                        $logStmt = mysqli_prepare($conn, $logSql);
+                        mysqli_stmt_bind_param($logStmt, "ss", $user['username'], $logAction);
+                        mysqli_stmt_execute($logStmt);
+                        mysqli_stmt_close($logStmt);
+
+                        // Clear temporary login session variables
+                        unset($_SESSION['login_username']);
+                        unset($_SESSION['login_password']);
+
+                        if (strtoupper($user['username']) === 'ADMIN') {
+                            header("Location: admin_approval.php");
+                            exit();
+                        } else {
+                            if ($user['user_type'] === 'passenger') {
+                                header("Location: passenger.php");
+                                exit();
+                            } elseif ($user['user_type'] === 'driver') {
+                                header("Location: driver.php");
+                                exit();
+                            } else {
+                                // Default fallback
+                                header("Location: login.php");
+                                exit();
+                            }
                         }
                     }
                 }

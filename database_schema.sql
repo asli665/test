@@ -1,16 +1,9 @@
-CREATE TABLE IF NOT EXISTS messages (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    driver_username VARCHAR(50) NOT NULL,
-    passenger_username VARCHAR(50) NOT NULL,
-    message TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (driver_username) REFERENCES users(username),
-    FOREIGN KEY (passenger_username) REFERENCES users(username)
+-- Add settings table for storing key-value configuration
+CREATE TABLE IF NOT EXISTS settings (
+  setting_key VARCHAR(255) PRIMARY KEY,
+  setting_value VARCHAR(255) NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS announcements (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    announcement_text TEXT NOT NULL,
-    image_path VARCHAR(255) DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Insert default OTP verification setting as enabled (1)
+INSERT INTO settings (setting_key, setting_value) VALUES ('otp_verification_enabled', '1')
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);

@@ -11,6 +11,29 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     exit();
 }
 
+// Handle OTP verification setting update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['otp_verification_enabled'])) {
+    $otpEnabled = $_POST['otp_verification_enabled'] === '1' ? '1' : '0';
+    $stmt = mysqli_prepare($conn, "INSERT INTO settings (setting_key, setting_value) VALUES ('otp_verification_enabled', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+    mysqli_stmt_bind_param($stmt, "s", $otpEnabled);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    header("Location: admin_approval.php");
+    exit();
+}
+
+// Fetch OTP verification setting
+$otpVerificationEnabled = '1'; // default enabled
+$stmt = mysqli_prepare($conn, "SELECT setting_value FROM settings WHERE setting_key = 'otp_verification_enabled' LIMIT 1");
+if ($stmt) {
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_bind_result($stmt, $settingValue);
+    if (mysqli_stmt_fetch($stmt)) {
+        $otpVerificationEnabled = $settingValue;
+    }
+    mysqli_stmt_close($stmt);
+}
+
 // Check if user is logged in and is admin
 if (!isset($_SESSION['username']) || !isset($_SESSION['user_type'])) {
     header("Location: login.php");
@@ -20,7 +43,7 @@ if (!isset($_SESSION['username']) || !isset($_SESSION['user_type'])) {
 $username = $_SESSION['username'];
 $userType = $_SESSION['user_type'];
 
-if (strtoupper($username) !== 'ADMIN' || $userType !== 'official') {
+if ($userType !== 'official') {
     echo "Access denied. You are not an admin.";
     exit();
 }
@@ -41,57 +64,108 @@ if (!empty($_POST)) {
     $targetUser = $_POST['username'] ?? '';
 
         if ($action && $targetUser && isset($users[$targetUser])) {
-            if ($action === 'approve') {
-                $sql = "UPDATE users SET approved = 1 WHERE username = ?";
-                $stmt = mysqli_prepare($conn, $sql);
-                mysqli_stmt_bind_param($stmt, "s", $targetUser);
-                mysqli_stmt_execute($stmt);
-                mysqli_stmt_close($stmt);
-            } elseif ($action === 'reject') {
-                $sql = "DELETE FROM users WHERE username = ?";
-                $stmt = mysqli_prepare($conn, $sql);
-                mysqli_stmt_bind_param($stmt, "s", $targetUser);
-                mysqli_stmt_execute($stmt);
-                mysqli_stmt_close($stmt);
-            } elseif ($action === 'delete') {
-                $sql = "DELETE FROM users WHERE username = ?";
-                $stmt = mysqli_prepare($conn, $sql);
-                mysqli_stmt_bind_param($stmt, "s", $targetUser);
-                mysqli_stmt_execute($stmt);
-                mysqli_stmt_close($stmt);
-            }
-            header("Location: admin_approval.php");
-            exit();
+        if ($action === 'approve') {
+            $sql = "UPDATE users SET approved = 1 WHERE username = ?";
+            $stmt = mysqli_prepare($conn, $sql);
+            mysqli_stmt_bind_param($stmt, "s", $targetUser);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            // Log approval action
+            $logAction = "Admin '{$username}' approved user '{$targetUser}'.";
+            $logSql = "INSERT INTO activity_logs (username, action) VALUES (?, ?)";
+            $logStmt = mysqli_prepare($conn, $logSql);
+            mysqli_stmt_bind_param($logStmt, "ss", $username, $logAction);
+            mysqli_stmt_execute($logStmt);
+            mysqli_stmt_close($logStmt);
+
+        } elseif ($action === 'reject') {
+            $sql = "DELETE FROM users WHERE username = ?";
+            $stmt = mysqli_prepare($conn, $sql);
+            mysqli_stmt_bind_param($stmt, "s", $targetUser);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            // Log rejection action
+            $logAction = "Admin '{$username}' rejected user '{$targetUser}'.";
+            $logSql = "INSERT INTO activity_logs (username, action) VALUES (?, ?)";
+            $logStmt = mysqli_prepare($conn, $logSql);
+            mysqli_stmt_bind_param($logStmt, "ss", $username, $logAction);
+            mysqli_stmt_execute($logStmt);
+            mysqli_stmt_close($logStmt);
+
+        } elseif ($action === 'delete') {
+            $sql = "DELETE FROM users WHERE username = ?";
+            $stmt = mysqli_prepare($conn, $sql);
+            mysqli_stmt_bind_param($stmt, "s", $targetUser);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            // Log delete action
+            $logAction = "Admin '{$username}' deleted user '{$targetUser}'.";
+            $logSql = "INSERT INTO activity_logs (username, action) VALUES (?, ?)";
+            $logStmt = mysqli_prepare($conn, $logSql);
+            mysqli_stmt_bind_param($logStmt, "ss", $username, $logAction);
+            mysqli_stmt_execute($logStmt);
+            mysqli_stmt_close($logStmt);
+        }
+        header("Location: admin_approval.php");
+        exit();
         }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['announcement'])) {
-    // Handle announcement image upload
-    $announcement = trim($_POST['announcement']);
-    $imagePath = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['announcement'])) {
+        // Handle announcement image upload
+        $announcement = trim($_POST['announcement']);
+        $imagePath = null;
 
-    if (!empty($_FILES['announcement_image']['name'])) {
-        $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'announcements' . DIRECTORY_SEPARATOR;
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-        $imageName = basename($_FILES['announcement_image']['name']);
-        $targetFile = $uploadDir . $imageName;
-        $imageFileType = strtolower(pathinfo($targetFile, PATHINFO_EXTENSION));
-        $allowedTypes = ['jpg', 'jpeg', 'png', 'gif'];
+        if (!empty($_FILES['announcement_image']['name'])) {
+            $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'announcements' . DIRECTORY_SEPARATOR;
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            $imageName = basename($_FILES['announcement_image']['name']);
+            $targetFile = $uploadDir . $imageName;
+            $imageFileType = strtolower(pathinfo($targetFile, PATHINFO_EXTENSION));
+            $allowedTypes = ['jpg', 'jpeg', 'png', 'gif'];
 
-        if (in_array($imageFileType, $allowedTypes)) {
-            if (move_uploaded_file($_FILES['announcement_image']['tmp_name'], $targetFile)) {
-                $imagePath = 'uploads/announcements/' . $imageName;
+            if (in_array($imageFileType, $allowedTypes)) {
+                if (move_uploaded_file($_FILES['announcement_image']['tmp_name'], $targetFile)) {
+                    $imagePath = 'uploads/announcements/' . $imageName;
+                }
             }
         }
-    }
 
-    if ($announcement !== '') {
-        $stmt = mysqli_prepare($conn, "INSERT INTO announcements (announcement_text, image_path) VALUES (?, ?)");
-        mysqli_stmt_bind_param($stmt, "ss", $announcement, $imagePath);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
+        if ($announcement !== '') {
+            $stmt = mysqli_prepare($conn, "INSERT INTO announcements (announcement_text, image_path) VALUES (?, ?)");
+            mysqli_stmt_bind_param($stmt, "ss", $announcement, $imagePath);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            // Log the announcement addition
+            $logAction = "Admin '{$username}' added an announcement.";
+            $logSql = "INSERT INTO activity_logs (username, action) VALUES (?, ?)";
+            $logStmt = mysqli_prepare($conn, $logSql);
+            mysqli_stmt_bind_param($logStmt, "ss", $username, $logAction);
+            mysqli_stmt_execute($logStmt);
+            mysqli_stmt_close($logStmt);
+
+            header("Location: admin_approval.php");
+            exit();
+        }
+    } elseif (isset($_POST['clear_announcements'])) {
+        // Clear all announcements
+        $deleteSql = "DELETE FROM announcements";
+        mysqli_query($conn, $deleteSql);
+
+        // Log the announcement clearing
+        $logAction = "Admin '{$username}' cleared all announcements.";
+        $logSql = "INSERT INTO activity_logs (username, action) VALUES (?, ?)";
+        $logStmt = mysqli_prepare($conn, $logSql);
+        mysqli_stmt_bind_param($logStmt, "ss", $username, $logAction);
+        mysqli_stmt_execute($logStmt);
+        mysqli_stmt_close($logStmt);
 
         header("Location: admin_approval.php");
         exit();
@@ -155,6 +229,15 @@ $pendingUsers = array_filter($users, function($user) {
                 </a>
             </li>
             <li>
+<form method="POST" action="admin_approval.php" style="padding: 10px; color: white;">
+    <input type="hidden" name="otp_verification_enabled" value="0" />
+    <label for="otp_verification_enabled" style="display: flex; align-items: center; cursor: pointer;">
+        <input type="checkbox" id="otp_verification_enabled" name="otp_verification_enabled" value="1" <?php echo ($otpVerificationEnabled === '1') ? 'checked' : ''; ?> onchange="this.form.submit()" style="margin-right: 8px;" />
+        Enable OTP Verification
+    </label>
+</form>
+            </li>
+            <li>
                 <a href="login.php?action=logout">
                     <span class="icon"><i class="fa-solid fa-right-from-bracket"></i></span>
                     <span class="text">LOG OUT</span>
@@ -171,8 +254,11 @@ $pendingUsers = array_filter($users, function($user) {
 
     <div class="main-content">
 
-        <section class="activity-log-section">
+<section class="activity-log-section">
             <h2>Activity Log</h2>
+            <form method="GET" action="export_activity_log.php" target="_blank" style="margin-bottom: 10px;">
+                <button type="submit" style="padding: 8px 12px; background-color: #007bff; color: white; border: none; cursor: pointer;">Print Report</button>
+            </form>
             <div class="activity-log" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px;">
                 <?php
                 // Fetch activity logs from database instead of text file
@@ -263,11 +349,15 @@ $pendingUsers = array_filter($users, function($user) {
 
         <section class="announcement-section" style="margin-top: 20px;">
             <h2>Add Announcement</h2>
-            <form method="POST" action="admin_approval.php" enctype="multipart/form-data">
+            <form method="POST" action="admin_approval.php" enctype="multipart/form-data" style="margin-bottom: 10px;">
                 <textarea name="announcement" rows="3" cols="50" placeholder="Enter announcement here..." required></textarea><br />
                 <label for="announcement_image">Upload Image (optional):</label>
                 <input type="file" name="announcement_image" id="announcement_image" accept="image/*" /><br />
                 <button type="submit">Add Announcement</button>
+            </form>
+            <form method="POST" action="admin_approval.php" onsubmit="return confirm('Are you sure you want to clear all announcements? This action cannot be undone.');">
+                <input type="hidden" name="clear_announcements" value="1" />
+                <button type="submit" style="background-color: #d9534f; color: white; border: none; padding: 8px 12px; cursor: pointer;">Clear Announcements</button>
             </form>
             <h3>Announcements</h3>
             <div class="announcements" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #f9f9f9;">

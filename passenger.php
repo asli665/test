@@ -1,9 +1,12 @@
 <?php
 session_start();
+error_log("Session username: " . ($_SESSION['username'] ?? 'not set'));
+error_log("Session user_type: " . ($_SESSION['user_type'] ?? 'not set'));
 include 'db.php';
 
 // Check if user is logged in and is a passenger
 if (!isset($_SESSION['username']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'passenger') {
+    session_write_close();
     header("Location: login.php");
     exit();
 }
@@ -78,16 +81,16 @@ if ($result) {
     <title>Passenger's Dashboard - Rangantodap</title>
     <link rel="stylesheet" href="driver.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-o9N1j7kGkQY0h0v+v+3k5b5Q5b5Q5b5Q5b5Q5b5Q5b5Q="
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       crossorigin=""/>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
       #map {
         height: 400px;
         width: 100%;
         margin-bottom: 20px;
       }
-    </style>
+  </style>
 </head>
 <body>
 
@@ -108,9 +111,10 @@ if ($result) {
           <span class="text">RANGANTODAP</span>
         </a>
       </li>
+      <li><a href="passenger.php"><span class="icon"><i class="fa-solid fa-user"></i></span><span class="text">HOME</span></a></li>
+      <li><a href="profile.php"><span class="icon"><i class="fa-solid fa-user"></i></span><span class="text">PROFILE</span></a></li>
       <li><a href="#"><span class="icon"><i class="fa-solid fa-bell"></i></span><span class="text">ANNOUNCEMENT</span></a></li>
       <li><a href="#"><span class="icon"><i class="fa-solid fa-star"></i></span><span class="text">RATE DRIVERS</span></a></li>
-      <li><a href="#"><span class="icon"><i class="fa-solid fa-user"></i></span><span class="text">PROFILE</span></a></li>
       <li><a href="login.php?action=logout"><span class="icon"><i class="fa-solid fa-right-from-bracket"></i></span><span class="text">LOG OUT</span></a></li>
     </ul>
   </div>
@@ -153,15 +157,17 @@ if ($result) {
       ?>
     </div>
 
-    <div id="map"></div>
+    <div id="mapContainer" style="width: 100%; height: 400px; margin-bottom: 20px;">
+      <div id="map" style="width: 100%; height: 100%;"></div>
+    </div>
 
-    <!-- Rating Module -->
-    <div class="rating-module">
+    <!-- Inline Rating Form -->
+    <div class="rating-module" style="margin-top: 20px;">
       <h2>Rate Your Driver</h2>
       <?php if ($message): ?>
         <p style="color: green;"><?php echo htmlspecialchars($message); ?></p>
       <?php endif; ?>
-      <form method="POST" action="passenger.php">
+      <form method="POST" action="passenger.php" id="ratingForm">
         <label for="driver">Select Driver:</label>
         <select id="driver" name="driver" required>
           <option value="">-- Select a driver --</option>
@@ -173,11 +179,11 @@ if ($result) {
         </select>
 
         <div class="stars" id="starRating">
-          <i class="fa-regular fa-star" data-value="1"></i>
-          <i class="fa-regular fa-star" data-value="2"></i>
-          <i class="fa-regular fa-star" data-value="3"></i>
-          <i class="fa-regular fa-star" data-value="4"></i>
-          <i class="fa-regular fa-star" data-value="5"></i>
+          <i class="far fa-star" data-value="1"></i>
+          <i class="far fa-star" data-value="2"></i>
+          <i class="far fa-star" data-value="3"></i>
+          <i class="far fa-star" data-value="4"></i>
+          <i class="far fa-star" data-value="5"></i>
         </div>
         <input type="hidden" name="rating" id="ratingInput" value="0" />
         <p>Your rating: <span id="ratingValue">0</span> star(s)</p>
@@ -189,19 +195,46 @@ if ($result) {
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-o9N1j7kGkQY0h0v+v+3k5b5Q5b5Q5b5Q5b5Q5b5Q5b5Q="
     crossorigin=""></script>
   <script>
-    var map = L.map('map').setView([14.456, 121.183], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
-    L.marker([14.456, 121.183]).addTo(map)
-        .bindPopup('Darangan, Binangonan, Rizal')
-        .openPopup();
+    document.addEventListener("DOMContentLoaded", function() {
+      console.log("DOM fully loaded and parsed");
+      console.log("Initializing map...");
+      var map = L.map('map').setView([14.48967, 121.1849], 18);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+      L.marker([14.48967, 121.1849]).addTo(map)
+          .bindPopup('Main Terminal')
+          .openPopup();
 
+    });
   </script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const stars = document.querySelectorAll("#starRating i");
+      const ratingInput = document.getElementById("ratingInput");
+      const ratingValue = document.getElementById("ratingValue");
 
+      stars.forEach(star => {
+        star.addEventListener("click", function() {
+          const selectedRating = parseInt(this.getAttribute("data-value"));
+          ratingInput.value = selectedRating;
+          ratingValue.textContent = selectedRating;
+
+          stars.forEach(s => {
+            if (parseInt(s.getAttribute("data-value")) <= selectedRating) {
+              s.classList.remove("far");
+              s.classList.add("fas");
+            } else {
+              s.classList.remove("fas");
+              s.classList.add("far");
+            }
+          });
+        });
+      });
+    });
+  </script>
 </body>
 </html>

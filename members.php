@@ -45,6 +45,10 @@ if ($result) {
     </style>
 </head>
 <body>
+
+  <?php include 'header.php'; ?>
+  <?php include 'sidebar.php'; ?>
+
   <!-- Admin Header (For Members Dashboard) -->
   <div class="driver-header">
     <img src="img/datodalogo.jpg" alt="Datoda Logo">
@@ -65,10 +69,10 @@ if ($result) {
           <span class="text">RANGANTODAP</span>
         </a>
       </li>
-      <li><a href="#"><span class="icon"><i class="fa-solid fa-user"></i></span><span class="text">ANNOUNCEMENT</span></a></li>
-      <li><a href="#"><span class="icon"><i class="fa-solid fa-star"></i></span><span class="text">PROFILE</span></a></li>
+      <li><a href="driver.php"><span class="icon"><i class="fa-solid fa-user"></i></span><span class="text">HOME</span></a></li>
+      <li><a href="profile.php"><span class="icon"><i class="fa-solid fa-star"></i></span><span class="text">PROFILE</span></a></li>
       <li><a href="members.php"><span class="icon"><i class="fa-solid fa-money-bill-wave"></i></span><span class="text">DATODA MEMBERS</span></a></li>
-      <li><a href="#"><span class="icon"><i class="fa-solid fa-table-list"></i></span><span class="text">FARE MATRIX</span></a></li>
+      <li><a href="fare_matrix.php"><span class="icon"><i class="fa-solid fa-table-list"></i></span><span class="text">FARE MATRIX</span></a></li>
       <li><a href="#"><span class="icon"><i class="fa-solid fa-box-open"></i></span><span class="text">FUNDS TRACKING</span></a></li>
       <li><a href="login.php?action=logout"><span class="icon"><i class="fa-solid fa-right-from-bracket"></i></span><span class="text">LOG OUT</span></a></li>
     </ul>

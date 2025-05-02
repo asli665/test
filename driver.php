@@ -95,7 +95,7 @@ error_log("Final driver profile picture path: " . $userPicturePath);
       }
   </style>
 </head>
-<body>
+<body class="driver-dashboard">
 
   <!-- Admin Header (For Driver's Dashboard) -->
   <div class="driver-header">
@@ -114,10 +114,10 @@ error_log("Final driver profile picture path: " . $userPicturePath);
           <span class="text">RANGANTODAP</span>
         </a>
       </li>
-      <li><a href="#"><span class="icon"><i class="fa-solid fa-user"></i></span><span class="text">ANNOUNCEMENT</span></a></li>
-      <li><a href="#"><span class="icon"><i class="fa-solid fa-star"></i></span><span class="text">PROFILE</span></a></li>
+      <li><a href="driver.php"><span class="icon"><i class="fa-solid fa-user"></i></span><span class="text">HOME</span></a></li>
+      <li><a href="profile.php"><span class="icon"><i class="fa-solid fa-star"></i></span><span class="text">PROFILE</span></a></li>
       <li><a href="members.php"><span class="icon"><i class="fa-solid fa-money-bill-wave"></i></span><span class="text">DATODA MEMBERS</span></a></li>
-      <li><a href="#"><span class="icon"><i class="fa-solid fa-table-list"></i></span><span class="text">FARE MATRIX</span></a></li>
+      <li><a href="fare_matrix.php"><span class="icon"><i class="fa-solid fa-table-list"></i></span><span class="text">FARE MATRIX</span></a></li>
       <li><a href="#"><span class="icon"><i class="fa-solid fa-box-open"></i></span><span class="text">FUNDS TRACKING</span></a></li>
       <li><a href="login.php?action=logout"><span class="icon"><i class="fa-solid fa-right-from-bracket"></i></span><span class="text">LOG OUT</span></a></li>
     </ul>
@@ -132,40 +132,12 @@ error_log("Final driver profile picture path: " . $userPicturePath);
       <p>Welcome, <?php echo htmlspecialchars($firstName . ' ' . $lastName); ?>!</p>
     </div>
 
-    <!-- 📢 Announcements Section -->
-    <div class="announcement-section">
-      <div class="section-title">Announcements</div>
-      <?php
-        $stmt = mysqli_prepare($conn, "SELECT announcement_text, image_path, created_at FROM announcements ORDER BY created_at DESC");
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_bind_result($stmt, $announcementText, $imagePath, $createdAt);
-        $announcements = [];
-        while (mysqli_stmt_fetch($stmt)) {
-            $announcements[] = ['text' => $announcementText, 'image' => $imagePath, 'created_at' => $createdAt];
-        }
-        mysqli_stmt_close($stmt);
 
-        if (empty($announcements)) {
-            echo "<p>No announcements available.</p>";
-        } else {
-            foreach ($announcements as $ann) {
-                echo "<div style='border-bottom: 1px solid #ddd; margin-bottom: 10px; padding-bottom: 10px;'>";
-                echo "<p>" . nl2br(htmlspecialchars($ann['text'])) . "</p>";
-                if (!empty($ann['image'])) {
-                    echo "<img src='" . htmlspecialchars($ann['image']) . "' alt='Announcement Image' style='max-width: 100%; height: auto; margin-top: 5px;' />";
-                }
-                echo "<small style='color: #666; font-size: 0.8em;'>Posted on " . htmlspecialchars($ann['created_at']) . "</small>";
-                echo "</div>";
-            }
-        }
-      ?>
-    </div>
 
     <div id="mapContainer" style="width: 100%; height: 400px; margin-bottom: 20px;">
       <div id="map" style="width: 100%; height: 100%;"></div>
     </div>
 
-    <!-- Removed test open modal button as per user request -->
 
     <!-- Modal for Ratings and Comments -->
     <div id="ratingModal" class="modal">
