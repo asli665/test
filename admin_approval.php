@@ -283,42 +283,75 @@ $pendingUsers = array_filter($users, function($user) {
             <?php if (empty($users)): ?>
                 <p>No users found.</p>
             <?php else: ?>
-                <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
-    <thead>
-        <tr>
-            <th>Picture</th>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Phone</th>
-            <th>User Type</th>
-            <th>Name</th>
-            <th>Verified</th>
-            <th>Approved</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        <?php foreach ($users as $uname => $user): ?>
-            <tr>
-                <td>
-                    <?php if (!empty($user['user_picture_path']) && file_exists($user['user_picture_path'])): ?>
-                        <img src="<?php echo htmlspecialchars($user['user_picture_path']); ?>" alt="User Picture" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;" />
+            <div class="table-responsive">
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th>Picture</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>User Type</th>
+                            <th>Name</th>
+                            <th>Body Number</th>
+                            <th>Number of Tricycles</th>
+                            <th>Driver's Names</th>
+                            <th>Operator Name</th>
+                            <th>ORCR Picture</th>
+                            <th>TODA ID Picture</th>
+                            <th>Proof of Employment</th>
+                            <th>Verified</th>
+                            <th>Approved</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($users as $uname => $user): ?>
+                            <tr>
+                                <td>
+                    <?php if (!empty($user['user_picture_path']) && file_exists(__DIR__ . DIRECTORY_SEPARATOR . $user['user_picture_path'])): ?>
+                        <img src="<?php echo htmlspecialchars($user['user_picture_path']); ?>" alt="User Picture" class="clickable-image" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;" />
                     <?php else: ?>
-                        <img src="img/datodalogo.jpg" alt="No Picture" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;" />
+                        <img src="img/datodalogo.jpg" alt="No Picture" class="clickable-image" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;" />
+                    <?php endif; ?>
+                                </td>
+                                <td><?php echo htmlspecialchars($uname); ?></td>
+                                <td><?php echo htmlspecialchars($user['email'] ?? ''); ?></td>
+                                <td><?php echo htmlspecialchars($user['phone'] ?? ''); ?></td>
+                                <td><?php echo htmlspecialchars($user['user_type'] ?? ''); ?></td>
+                                <td>
+                                    <?php 
+                                        $name = [];
+                                        if (!empty($user['first_name'])) $name[] = htmlspecialchars($user['first_name']);
+                                        if (!empty($user['middle_name'])) $name[] = htmlspecialchars($user['middle_name']);
+                                        if (!empty($user['last_name'])) $name[] = htmlspecialchars($user['last_name']);
+                                        echo implode(' ', $name);
+                                    ?>
+                                </td>
+                                <td><?php echo htmlspecialchars($user['body_number'] ?? ''); ?></td>
+                                <td><?php echo htmlspecialchars($user['num_tricycles'] ?? ''); ?></td>
+                                <td><?php echo nl2br(htmlspecialchars($user['drivers_names'] ?? '')); ?></td>
+                                <td><?php echo htmlspecialchars($user['operator_name'] ?? ''); ?></td>
+                                <td>
+                    <?php if (!empty($user['orcr_picture_path']) && file_exists(__DIR__ . DIRECTORY_SEPARATOR . $user['orcr_picture_path'])): ?>
+                        <img src="<?php echo htmlspecialchars($user['orcr_picture_path']); ?>" alt="ORCR Picture" class="clickable-image" style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;" />
+                    <?php else: ?>
+                        <span>No ORCR Picture</span>
                     <?php endif; ?>
                 </td>
-                <td><?php echo htmlspecialchars($uname); ?></td>
-                <td><?php echo htmlspecialchars($user['email'] ?? ''); ?></td>
-                <td><?php echo htmlspecialchars($user['phone'] ?? ''); ?></td>
-                <td><?php echo htmlspecialchars($user['user_type'] ?? ''); ?></td>
                 <td>
-                    <?php 
-                        $name = [];
-                        if (!empty($user['first_name'])) $name[] = htmlspecialchars($user['first_name']);
-                        if (!empty($user['middle_name'])) $name[] = htmlspecialchars($user['middle_name']);
-                        if (!empty($user['last_name'])) $name[] = htmlspecialchars($user['last_name']);
-                        echo implode(' ', $name);
-                    ?>
+                    <?php if (!empty($user['toda_id_picture_path']) && file_exists(__DIR__ . DIRECTORY_SEPARATOR . $user['toda_id_picture_path'])): ?>
+                        <img src="<?php echo htmlspecialchars($user['toda_id_picture_path']); ?>" alt="TODA ID Picture" class="clickable-image" style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;" />
+                    <?php else: ?>
+                        <span>No TODA ID Picture</span>
+                    <?php endif; ?>
+                </td>
+                <td>
+                    <?php if (!empty($user['proof_of_employment_path']) && file_exists(__DIR__ . DIRECTORY_SEPARATOR . $user['proof_of_employment_path'])): ?>
+                        <img src="<?php echo htmlspecialchars($user['proof_of_employment_path']); ?>" alt="Proof of Employment" class="clickable-image" style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;" />
+                    <?php else: ?>
+                        <span>No Proof of Employment</span>
+                    <?php endif; ?>
                 </td>
                 <td><?php echo ($user['verified'] ?? false) ? 'Yes' : 'No'; ?></td>
                 <td><?php echo ($user['approved'] ?? false) ? 'Yes' : 'No'; ?></td>
@@ -344,6 +377,38 @@ $pendingUsers = array_filter($users, function($user) {
         <?php endforeach; ?>
 </tbody>
 </table>
+
+<div id="imageModal" style="display:none; position:fixed; z-index:10000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.8);">
+    <span id="closeModal" style="position:absolute; top:20px; right:35px; color:#fff; font-size:40px; font-weight:bold; cursor:pointer;">&times;</span>
+    <img id="modalImage" style="margin:auto; display:block; max-width:90%; max-height:90%; position:relative; top:50%; transform:translateY(-50%);" />
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('imageModal');
+    const modalImage = document.getElementById('modalImage');
+    const closeModal = document.getElementById('closeModal');
+
+    document.querySelectorAll('.clickable-image').forEach(img => {
+        img.addEventListener('click', function() {
+            modal.style.display = 'block';
+            modalImage.src = this.src;
+        });
+    });
+
+    closeModal.addEventListener('click', function() {
+        modal.style.display = 'none';
+        modalImage.src = '';
+    });
+
+    window.addEventListener('click', function(event) {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+            modalImage.src = '';
+        }
+    });
+});
+</script>
             <?php endif; ?>
         </section>
 
